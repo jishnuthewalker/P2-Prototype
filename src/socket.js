@@ -41,12 +41,14 @@ export function disconnect() {
 /**
  * Emits an event to the server.
  * @param {string} eventName - The name of the event.
- * @param {any} data - The data to send with the event.
+ * @param {...any} args - Data and optional callback function to send.
  */
-export function emit(eventName, data) {
+export function emit(eventName, ...args) { // Use rest parameter
     if (socket && socket.connected) {
-        console.log(`Emitting event: ${eventName}`, data);
-        socket.emit(eventName, data);
+        // Log all arguments being sent
+        console.log(`Emitting event: ${eventName}`, ...args);
+        // Pass all arguments to the underlying socket.emit
+        socket.emit(eventName, ...args);
     } else {
         console.error(`Socket not connected. Cannot emit event: ${eventName}`);
         // Handle error - maybe notify user or attempt reconnect?

@@ -1,5 +1,3 @@
-// Placeholder for game logic module required by server.js
-
 const KANNADA_LETTERS = [
     // Simple vowels (Swara)
     { script: "ಅ", latin: "a" }, { script: "ಆ", latin: "aa" }, { script: "ಇ", latin: "i" },
@@ -21,11 +19,60 @@ const KANNADA_LETTERS = [
     { script: "ಳ", latin: "ḷa" },
 ];
 
-const TURN_DURATION_SECONDS = 90; // Example turn duration
+const TURN_DURATION_SECONDS = 90;
+const NEXT_TURN_DELAY_MS = 2000; // Delay after correct guess before next turn
 
 // Use shared constants
 const EVENTS = require('./constants');
 
+// --- Helper Functions ---
+
+/**
+ * Clears the turn timer interval for a room if it exists.
+ * @param {object} room - The room object.
+ */
+function clearTurnTimer(room) {
+    if (room?.gameState?.turnTimerId) {
+        clearInterval(room.gameState.turnTimerId);
+        room.gameState.turnTimerId = null;
+    }
+}
+
+/**
+ * Selects the next player index in a round-robin fashion.
+ * @param {number} currentIndex - The current player index.
+ * @param {number} playerCount - The total number of players.
+ * @returns {number} The index of the next player.
+ */
+function getNextPlayerIndex(currentIndex, playerCount) {
+    if (playerCount <= 0) return -1;
+    return (currentIndex + 1) % playerCount;
+}
+
+/**
+ * Selects a random word (Kannada letter) for the turn.
+ * @returns {{ script: string, latin: string }} The selected word object.
+ */
+function selectRandomWord() {
+    const randomIndex = Math.floor(Math.random() * KANNADA_LETTERS.length);
+    return KANNADA_LETTERS[randomIndex];
+}
+
+/**
+ * Calculates points awarded for a correct guess.
+ * @param {number} timeLeft - Time remaining in the turn.
+ * @param {number} turnDuration - Total duration of the turn.
+ * @returns {number} Points awarded.
+ */
+function calculatePoints(timeLeft, turnDuration) {
+    // Example scoring: More points for faster guesses
+    const timeFactor = Math.max(0, timeLeft / turnDuration); // Factor between 0 and 1
+    const basePoints = 10; // Base points for a correct guess
+    const bonusPoints = Math.round(basePoints * timeFactor); // Bonus based on time
+    return basePoints + bonusPoints;
+}
+
+// --- Core Game Logic Functions ---
 
 /**
  * Starts the game in a specific room.
@@ -34,16 +81,31 @@ const EVENTS = require('./constants');
  * @param {number} scoreGoal - The score needed to win.
  */
 function startGame(io, room, scoreGoal) {
-    console.log(`Starting game in room ${room.id} with goal ${scoreGoal}`);
-    room.gameState.isGameActive = true;
-    room.gameState.scoreGoal = scoreGoal || 50;
-    room.gameState.teamScore = 0;
-    room.gameState.currentPlayerIndex = -1; // Will be incremented in startNewTurn
+    if (!room || !io) {
+        console.error("[startGame] Invalid arguments: io or room missing.");
+        return;
+    }
+    console.log(`[GameLogic] Starting game in room ${room.id} with goal ${scoreGoal}`);
+
+    // Reset scores and initialize game state
+    room.players.forEach(p => p.score = 0); // Reset scores at game start
+    room.gameState = {
+        ...room.gameState, // Keep existing parts like settings if needed
+        isGameActive: true,
+        scoreGoal: scoreGoal || 50,
+        teamScore: 0,
+        currentPlayerIndex: -1, // Will be incremented in startNewTurn
+        currentDrawerId: null,
+        currentWord: null,
+        timeLeft: 0,
+        turnStartTime: null,
+        turnTimerId: null,
+    };
 
     // Notify all players in the room that the game has started
     io.to(room.id).emit(EVENTS.GAME_STARTED, {
         scoreGoal: room.gameState.scoreGoal,
-        players: room.players // Send initial player list with scores
+        players: room.players // Send initial player list with reset scores
     });
 
     // Start the first turn
@@ -56,30 +118,30 @@ function startGame(io, room, scoreGoal) {
  * @param {object} room - The room object.
  */
 function startNewTurn(io, room) {
-    if (!room || !room.gameState.isGameActive || room.players.length < 1) {
-        console.log(`Cannot start new turn in room ${room?.id}. Conditions not met.`);
-        // Maybe end game if players < 2? Handled in disconnect logic for now.
+    if (!room || !io || !room.gameState.isGameActive || room.players.length < 1) {
+        console.log(`[GameLogic] Cannot start new turn in room ${room?.id}. Conditions not met.`);
+        // Consider ending game if players < 2? (Handled in disconnect logic)
         return;
     }
 
-    // Clear previous turn timer if it exists
-    if (room.gameState.turnTimerId) {
-        clearInterval(room.gameState.turnTimerId);
-        room.gameState.turnTimerId = null;
-    }
+    clearTurnTimer(room); // Ensure previous timer is cleared
 
-    // Select next player (round-robin)
-    room.gameState.currentPlayerIndex = (room.gameState.currentPlayerIndex + 1) % room.players.length;
+    // Select next player
+    room.gameState.currentPlayerIndex = getNextPlayerIndex(room.gameState.currentPlayerIndex, room.players.length);
     const currentDrawer = room.players[room.gameState.currentPlayerIndex];
+    if (!currentDrawer) {
+        console.error(`[GameLogic] Failed to select drawer for room ${room.id} at index ${room.gameState.currentPlayerIndex}`);
+        endGame(io, room, "Error selecting next player."); // End game if player selection fails
+        return;
+    }
     room.gameState.currentDrawerId = currentDrawer.id;
 
-    // Select a new word (Kannada letter in this case)
-    const randomIndex = Math.floor(Math.random() * KANNADA_LETTERS.length);
-    room.gameState.currentWord = KANNADA_LETTERS[randomIndex]; // Store { script, latin }
+    // Select a new word
+    room.gameState.currentWord = selectRandomWord();
 
-    console.log(`New turn for room ${room.id}. Drawer: ${currentDrawer.name}, Letter: ${room.gameState.currentWord.script}`);
+    console.log(`[GameLogic] New turn for room ${room.id}. Drawer: ${currentDrawer.name}, Letter: ${room.gameState.currentWord.script}`);
 
-    // Reset turn timer
+    // Reset turn timer state
     room.gameState.timeLeft = TURN_DURATION_SECONDS;
     room.gameState.turnStartTime = Date.now();
 
@@ -90,29 +152,33 @@ function startNewTurn(io, room) {
         timeLeft: room.gameState.timeLeft,
     });
 
-    // Send the word only to the drawer using the standardized event name
+    // Send the word only to the drawer
     io.to(currentDrawer.id).emit(EVENTS.YOUR_TURN_TO_DRAW, {
-        word: room.gameState.currentWord // Send the { script, latin } object
+        word: room.gameState.currentWord
     });
 
     // Clear canvas for everyone
     io.to(room.id).emit(EVENTS.CLEAR_CANVAS_UPDATE);
 
-    // Start the turn timer
+    // Start the turn timer interval
     room.gameState.turnTimerId = setInterval(() => {
+        if (!room.gameState.isGameActive) { // Safety check if game ended during interval
+            clearTurnTimer(room);
+            return;
+        }
+
         room.gameState.timeLeft--;
         io.to(room.id).emit(EVENTS.TIMER_UPDATE, { timeLeft: room.gameState.timeLeft });
 
         if (room.gameState.timeLeft <= 0) {
-            // Time's up! End the current turn and start a new one.
-            clearInterval(room.gameState.turnTimerId);
-            room.gameState.turnTimerId = null;
-            io.to(room.id).emit(EVENTS.CHAT_UPDATE, {
+            // Time's up!
+            clearTurnTimer(room);
+            io.to(room.id).emit(EVENTS.CHAT_MESSAGE, { // Use correct event name
                 sender: 'System',
-                message: `Time's up! The letter was ${room.gameState.currentWord.script} (${room.gameState.currentWord.latin}).`,
+                message: `Time's up! The letter was ${room.gameState.currentWord?.script || '?'} (${room.gameState.currentWord?.latin || '?'}).`,
                 type: 'system'
             });
-            startNewTurn(io, room);
+            startNewTurn(io, room); // Start next turn automatically
         }
     }, 1000);
 }
@@ -125,50 +191,46 @@ function startNewTurn(io, room) {
  * @param {string} guessText - The text of the guess.
  */
 function handleGuess(io, room, player, guessText) {
-    if (!room.gameState.isGameActive || !room.gameState.currentWord || player.id === room.gameState.currentDrawerId) {
-        return; // Ignore guesses if game not active, no word, or drawer guesses
+    // Validate conditions for guessing
+    if (!room?.gameState?.isGameActive || !room.gameState.currentWord || player?.id === room.gameState.currentDrawerId) {
+        return;
     }
 
-    const correctWordScript = room.gameState.currentWord.script;
-    const correctWordLatin = room.gameState.currentWord.latin.toLowerCase();
+    const correctWord = room.gameState.currentWord;
     const playerGuess = guessText.trim().toLowerCase();
 
-    const isCorrect = (playerGuess === correctWordScript || playerGuess === correctWordLatin);
+    // Check against both script and latin forms
+    const isCorrect = (playerGuess === correctWord.script || playerGuess === correctWord.latin.toLowerCase());
 
     // Broadcast the guess attempt as a chat message
-    io.to(room.id).emit(EVENTS.CHAT_UPDATE, {
+    io.to(room.id).emit(EVENTS.CHAT_MESSAGE, {
         sender: player.name,
         message: guessText, // Show original guess text
         type: 'chat'
     });
 
     if (isCorrect) {
-        console.log(`Correct guess by ${player.name} in room ${room.id}! Letter: ${correctWordScript}`);
+        console.log(`[GameLogic] Correct guess by ${player.name} in room ${room.id}! Letter: ${correctWord.script}`);
 
-        // Award points (example: based on time remaining)
-        const timeTaken = (Date.now() - room.gameState.turnStartTime) / 1000;
-        const pointsAwarded = Math.max(1, Math.round(10 * (room.gameState.timeLeft / TURN_DURATION_SECONDS))); // Simple scoring
+        clearTurnTimer(room); // Stop timer on correct guess
 
-        // Update individual player score (optional, if tracking individual scores)
-        player.score += pointsAwarded;
+        // Award points
+        const pointsAwarded = calculatePoints(room.gameState.timeLeft, TURN_DURATION_SECONDS);
 
-        // Update team score
-        room.gameState.teamScore += pointsAwarded;
+        // Update player and team scores
+        player.score = (player.score || 0) + pointsAwarded; // Ensure score is initialized
+        room.gameState.teamScore = (room.gameState.teamScore || 0) + pointsAwarded;
 
-        // Clear the turn timer
-        if (room.gameState.turnTimerId) {
-            clearInterval(room.gameState.turnTimerId);
-            room.gameState.turnTimerId = null;
-        }
-
-        // Notify players of the correct guess and score update
+        // Notify players of the correct guess
         io.to(room.id).emit(EVENTS.GUESS_RESULT, {
             playerId: player.id,
             playerName: player.name,
             isCorrect: true,
-            word: room.gameState.currentWord, // Reveal the word
+            word: correctWord, // Reveal the word
             pointsAwarded: pointsAwarded
         });
+
+        // Notify players of the score update
         io.to(room.id).emit(EVENTS.SCORE_UPDATE, {
             players: room.players, // Send updated scores for all players
             teamScore: room.gameState.teamScore
@@ -179,10 +241,10 @@ function handleGuess(io, room, player, guessText) {
             endGame(io, room, `${player.name} made the winning guess!`);
         } else {
             // Start the next turn after a short delay
-            setTimeout(() => startNewTurn(io, room), 2000); // 2-second delay
+            setTimeout(() => startNewTurn(io, room), NEXT_TURN_DELAY_MS);
         }
     }
-    // No need for an 'else' here, incorrect guesses are just shown as chat messages.
+    // Incorrect guesses are implicitly handled by just showing the chat message
 }
 
 /**
@@ -192,20 +254,20 @@ function handleGuess(io, room, player, guessText) {
  * @param {string} reason - The reason the game ended.
  */
 function endGame(io, room, reason) {
-    console.log(`Game ending in room ${room.id}. Reason: ${reason}`);
-    room.gameState.isGameActive = false;
-
-    // Clear any active turn timer
-    if (room.gameState.turnTimerId) {
-        clearInterval(room.gameState.turnTimerId);
-        room.gameState.turnTimerId = null;
+    if (!room || !io) {
+        console.error("[endGame] Invalid arguments: io or room missing.");
+        return;
     }
+    console.log(`[GameLogic] Game ending in room ${room.id}. Reason: ${reason}`);
 
-    // Reset game state parts (keep scores for final display)
+    clearTurnTimer(room); // Ensure timer is stopped
+
+    // Update game state
+    room.gameState.isGameActive = false;
     room.gameState.currentDrawerId = null;
     room.gameState.currentWord = null;
     room.gameState.timeLeft = 0;
-    room.gameState.currentPlayerIndex = -1;
+    // Keep scores and player index as they are for final display
 
     // Notify players that the game is over
     io.to(room.id).emit(EVENTS.GAME_OVER, {
@@ -214,9 +276,8 @@ function endGame(io, room, reason) {
         finalTeamScore: room.gameState.teamScore
     });
 
-    // Optionally reset scores here or let players see them until they leave/restart
-    // room.players.forEach(p => p.score = 0);
-    // room.gameState.teamScore = 0;
+    // Note: Scores are not automatically reset here. The game might transition
+    // back to the lobby where scores are visible until a new game starts.
 }
 
 

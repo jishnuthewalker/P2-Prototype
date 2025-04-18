@@ -58,7 +58,7 @@
         </div>
 
         <!-- Game Lobby View -->
-        <div v-if="currentView === 'lobby'" class="w-full max-w-md mx-auto bg-white p-6 rounded-2xl shadow-lg text-center my-6 flex-shrink-0">
+        <div v-if="currentView === 'game-lobby'" class="w-full max-w-md mx-auto bg-white p-6 rounded-2xl shadow-lg text-center my-6 flex-shrink-0">
             <h2 class="text-2xl font-bold mb-3 text-gray-700">Room Lobby</h2>
             <p class="mb-2 text-gray-600">Room Code: <strong class="text-blue-600 text-lg font-mono">{{ room?.id || '----' }}</strong></p>
             <p class="mb-4 text-sm text-gray-500">Share this code with friends!</p>
@@ -207,6 +207,8 @@
 
     <!-- Load petite-vue (removed defer init) -->
     <script src="https://unpkg.com/petite-vue"></script>
+    <!-- Load Signature Pad -->
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 
     <!-- Load Main Application Script as Module -->
     <script type="module" src="src/main.js" defer></script>

@@ -1,268 +1,220 @@
-// Removed dom and state imports
-import * as socket from './socket.js'; // To send drawing data
-import { SOCKET_EVENTS } from './constants.js'; // To use correct event names
+// src/canvas.js
+
+import * as socket from './socket.js';
+import { SOCKET_EVENTS } from './constants.js';
+
+// @ts-ignore
+const SignaturePad = window.SignaturePad;
 
 let canvas = null;
-let ctx = null;
-let isDrawing = false;
-let lastX = 0;
-let lastY = 0;
-let currentBrushSize = 3; // Default, will be set by main.js
-let currentColor = '#000000'; // Default, will be set by main.js
-let currentRoomId = null; // Store room ID when game starts
+let signaturePad = null;
+let currentRoomId = null;
+let isDrawingEnabledLocally = false;
+let debounceDrawTimeout = null; // Renamed for clarity
+const DRAW_DEBOUNCE_DELAY = 150; // Slightly increased delay (optional)
 
 /**
- * Initializes the canvas and sets up event listeners.
- * @param {HTMLCanvasElement} canvasElement - The canvas element passed from main.js.
+ * Debounced function to send drawing data.
+ */
+function debouncedSendDrawData() {
+    if (debounceDrawTimeout) {
+        clearTimeout(debounceDrawTimeout);
+    }
+    debounceDrawTimeout = setTimeout(() => {
+        console.log(`[Canvas] Debounce triggered. Attempting to send draw data for room ${currentRoomId}...`);
+        sendDrawData();
+        debounceDrawTimeout = null;
+    }, DRAW_DEBOUNCE_DELAY);
+}
+
+/**
+ * Initializes the canvas and sets up SignaturePad.
+ * @param {HTMLCanvasElement} canvasElement - The canvas element.
  * @param {string} roomId - The current room ID.
  */
 export function initCanvas(canvasElement, roomId) {
     if (!canvasElement) {
-        console.error("initCanvas called without a valid canvas element!");
+        console.error("[Canvas] initCanvas called without a valid canvas element!");
+        return;
+    }
+    if (!SignaturePad) {
+        console.error("[Canvas] SignaturePad library not loaded!");
         return;
     }
     canvas = canvasElement;
-    currentRoomId = roomId; // Store room ID for sending data
+    currentRoomId = roomId;
 
-    ctx = canvas.getContext('2d');
-    if (!ctx) {
-        console.error("Failed to get 2D context from canvas!");
-        return;
+    resizeCanvas(); // Initial resize
+
+    // Destroy previous instance if exists (safety for re-init)
+    if (signaturePad) {
+        signaturePad.off(); // Remove old listeners
     }
+    try {
+        signaturePad = new SignaturePad(canvas, {
+            // Options:
+            // minWidth: 0.5,
+            // maxWidth: 2.5,
+            penColor: '#000000', // Default color, will be updated by setCurrentColor
+            // backgroundColor: 'rgba(255, 255, 255, 0)' // Transparent background
+        });
 
-    // Set initial canvas dimensions based on container size
-    resizeCanvas();
+        // --- Event Listeners ---
+        // Listen for stroke end to send data
+        signaturePad.addEventListener("endStroke", handleEndStroke); // Use named handler
 
-    // --- Remove previous listeners if any (safety measure) ---
-    canvas.removeEventListener('mousedown', startDrawing);
-    canvas.removeEventListener('mousemove', draw);
-    canvas.removeEventListener('mouseup', stopDrawing);
-    canvas.removeEventListener('mouseout', stopDrawing);
-    canvas.removeEventListener('touchstart', handleTouchStart);
-    canvas.removeEventListener('touchmove', handleTouchMove);
-    canvas.removeEventListener('touchend', stopDrawing);
-    canvas.removeEventListener('touchcancel', stopDrawing);
-    window.removeEventListener('resize', resizeCanvas); // Remove potential old listener
+        // Listen for window resize
+        window.removeEventListener('resize', handleWindowResize); // Remove potential old listener, use named handler
+        window.addEventListener('resize', handleWindowResize);
 
-    // --- Add event listeners ---
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseout', stopDrawing); // Stop if mouse leaves canvas
+        console.log("[Canvas] SignaturePad initialized.");
+        setDrawingEnabled(false); // Disabled by default
 
-    // Touch events
-    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-    canvas.addEventListener('touchend', stopDrawing);
-    canvas.addEventListener('touchcancel', stopDrawing);
-
-    // Listen for window resize to adjust canvas
-    window.addEventListener('resize', resizeCanvas);
-
-    // Initial brush properties are set via setCurrentColor/setBrushSize called from main.js
-    if(ctx) {
-        ctx.lineWidth = currentBrushSize;
-        ctx.strokeStyle = currentColor;
+    } catch (error) {
+        console.error("[Canvas] Failed to initialize SignaturePad:", error);
+        // Optionally show an error to the user
     }
-
-    console.log("Canvas initialized.");
-    setDrawingEnabled(false); // Disabled by default
 }
 
-/** Adjusts canvas size to fit its container. */
+/** Handles the endStroke event from SignaturePad */
+function handleEndStroke() {
+    if (isDrawingEnabledLocally && currentRoomId) {
+        debouncedSendDrawData(); // Use the debounced function
+    }
+}
+
+/** Handles the window resize event */
+function handleWindowResize() {
+    // Debounce resize handling as well to avoid excessive redraws
+    // (Implementation similar to draw debounce, omitted for brevity but recommended)
+    resizeCanvas();
+}
+
+
+/** Adjusts canvas size and redraws content. */
 function resizeCanvas() {
-    if (!canvas || !canvas.parentElement || !ctx) return;
-    // Save current drawing state if needed (optional)
-    // const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    if (!canvas || !canvas.parentElement) return;
+
+    // Save current drawing data
+    const data = signaturePad ? signaturePad.toData() : []; // Get data before resize
 
     // Resize based on parent element's client size
-    canvas.width = canvas.parentElement.clientWidth;
-    // Maintain a fixed aspect ratio (e.g., 16:9) or set a fixed height
-    canvas.height = canvas.parentElement.clientWidth * (9 / 16); // Example: 16:9 aspect ratio
-    // Or fixed height: canvas.height = 400;
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    canvas.width = canvas.parentElement.clientWidth * ratio;
+    canvas.height = canvas.parentElement.clientWidth * (9 / 16) * ratio; // Example: 16:9 aspect ratio
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+        ctx.scale(ratio, ratio);
+    }
 
-    // Restore drawing state if saved (optional)
-    // ctx.putImageData(imageData, 0, 0);
 
-    // Re-apply drawing styles after resize (context might reset)
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    ctx.lineWidth = currentBrushSize;
-    ctx.strokeStyle = currentColor;
-
-    console.log(`Canvas resized to: ${canvas.width}x${canvas.height}`);
+    // Restore drawing data after resize
+    if (signaturePad) {
+        signaturePad.clear(); // Clear current (scaled) context
+        signaturePad.fromData(data); // Redraw data on the correctly scaled canvas
+    }
+    console.log(`[Canvas] Resized to: ${canvas.width / ratio}x${canvas.height / ratio} (ratio: ${ratio})`);
 }
 
 /**
- * Enables or disables canvas interaction.
- * Called by main.js based on game state.
+ * Enables or disables drawing interaction via SignaturePad's on/off methods.
  */
 export function setDrawingEnabled(enabled) {
-    if (!canvas) return;
-    canvas.style.cursor = enabled ? 'crosshair' : 'not-allowed';
-    // Prevent events entirely when not allowed to draw
-    canvas.style.pointerEvents = enabled ? 'auto' : 'none';
-    console.log(`Canvas drawing interaction enabled: ${enabled}`);
-    // NOTE: Disabling/enabling controls (color picker, slider) is handled
+    isDrawingEnabledLocally = enabled; // Update local flag
+    if (signaturePad) {
+        if (enabled) {
+            signaturePad.on(); // Enable drawing event listeners
+            canvas.style.cursor = 'crosshair';
+            canvas.style.pointerEvents = 'auto'; // Ensure canvas receives events
+        } else {
+            signaturePad.off(); // Disable drawing event listeners
+            canvas.style.cursor = 'not-allowed';
+            canvas.style.pointerEvents = 'none'; // Prevent events when not drawing
+        }
+        console.log(`[Canvas] SignaturePad drawing enabled: ${enabled}`);
+    }
+     // NOTE: Disabling/enabling controls (color picker, slider) is handled
     //       by petite-vue bindings in HTML based on appState.isDrawing
 }
 
-/** Sets the current brush color (called by main.js). */
+/** Sets the current pen color. */
 export function setCurrentColor(color) {
-    currentColor = color;
-    if (ctx) {
-        ctx.strokeStyle = currentColor;
+    if (signaturePad) {
+        signaturePad.penColor = color;
     }
 }
 
-/** Sets the current brush size (called by main.js). */
+/** Sets the current pen thickness (min/max width). */
 export function setBrushSize(size) {
-    currentBrushSize = parseInt(size, 10);
-    if (ctx) {
-        ctx.lineWidth = currentBrushSize;
+    // SignaturePad uses minWidth/maxWidth, not a single lineWidth
+    // We can approximate by setting both, or use a fixed ratio
+    const baseSize = parseInt(size, 10);
+    const minW = Math.max(0.5, baseSize / 2); // Example: min is half of size
+    const maxW = Math.max(1.0, baseSize * 1.5); // Example: max is 1.5 times size
+
+    if (signaturePad) {
+        signaturePad.minWidth = minW;
+        signaturePad.maxWidth = maxW;
     }
 }
 
-
-function startDrawing(e) {
-    // pointerEvents style handles enabling/disabling
-    isDrawing = true;
-    [lastX, lastY] = getEventCoordinates(e);
-}
-
-function draw(e) {
-    if (!isDrawing) return;
-    const [currentX, currentY] = getEventCoordinates(e);
-
-    // Draw locally first
-    drawLine(lastX, lastY, currentX, currentY);
-    // Send data for broadcast
-    sendDrawData(lastX, lastY, currentX, currentY); // Pass roomId implicitly via module variable
-
-    [lastX, lastY] = [currentX, currentY];
-}
-
-function stopDrawing() {
-    if (!isDrawing) return;
-    isDrawing = false;
-}
-
-// --- Touch Event Handlers ---
-function handleTouchStart(e) {
-    e.preventDefault(); // Prevent scrolling/default touch actions
-    if (e.touches.length > 0) {
-        startDrawing(e.touches[0]);
+/** Clears the canvas locally using SignaturePad's clear method. */
+export function clearCanvas() {
+    if (signaturePad) {
+        try {
+            signaturePad.clear();
+            console.log("[Canvas] Cleared locally.");
+            // Note: We might want to *also* send a clear event to the server here
+            // if other users should see the clear immediately, even if the drawer
+            // doesn't lift the pen (e.g., clicks a clear button).
+            // socket.emit(SOCKET_EVENTS.CLEAR_CANVAS, currentRoomId);
+        } catch (error) {
+            console.error("[Canvas] Error clearing canvas:", error);
+        }
     }
 }
 
-function handleTouchMove(e) {
-    if (!isDrawing) return;
-    e.preventDefault(); // Prevent scrolling/default touch actions
-     if (e.touches.length > 0) {
-        draw(e.touches[0]);
-    }
-}
-
-
-// --- Drawing Logic ---
-
-/**
- * Draws a line segment on the canvas.
- * @param {number} x1 - Start X coordinate.
- * @param {number} y1 - Start Y coordinate.
- * @param {number} x2 - End X coordinate.
- * @param {number} y2 - End Y coordinate.
- * @param {string} [color=currentColor] - Color for this segment.
- * @param {number} [size=currentBrushSize] - Brush size for this segment.
- */
-export function drawLine(x1, y1, x2, y2, color = currentColor, size = currentBrushSize) {
-    if (!ctx) return;
-    ctx.beginPath();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = size;
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-    ctx.closePath();
-}
 
 // --- Data Handling ---
 
-/**
- * Sends a line segment drawing data to the server.
- * Uses the currentRoomId stored when initCanvas was called.
- * @param {number} x1 - Start X coordinate.
- * @param {number} y1 - Start Y coordinate.
- * @param {number} x2 - End X coordinate.
- * @param {number} y2 - End Y coordinate.
- */
-function sendDrawData(x1, y1, x2, y2) {
-    if (!currentRoomId || !canvas) return; // Don't send if not in a room or canvas not ready
+/** Sends the entire drawing data (all points) to the server. */
+function sendDrawData() {
+    if (!signaturePad || !currentRoomId || !isDrawingEnabledLocally) {
+        console.warn("[Canvas] sendDrawData called but conditions not met (pad, room, enabled).");
+        return;
+    }
 
-    const data = {
-        color: currentColor,
-        size: currentBrushSize,
-        // Normalize coordinates
-        x1: x1 / canvas.width,
-        y1: y1 / canvas.height,
-        x2: x2 / canvas.width,
-        y2: y2 / canvas.height,
-    };
-    socket.emit(SOCKET_EVENTS.DRAW_DATA, currentRoomId, data);
+    try {
+        const data = signaturePad.toData(); // Gets array of point groups
+        if (data && data.length > 0) {
+            console.log(`[Canvas] Sending ${data.length} stroke groups.`);
+            socket.emit(SOCKET_EVENTS.DRAW_DATA, currentRoomId, data);
+        } else {
+            console.log("[Canvas] No drawing data to send.");
+        }
+    } catch (error) {
+        console.error("[Canvas] Error getting or sending drawing data:", error);
+        // Potentially notify the user or attempt recovery
+    }
 }
 
-
 /**
- * Handles incoming drawing data from the server.
- * @param {object} data - The drawing data object received.
+ * Handles incoming drawing data (full point data) from the server.
+ * @param {Array} data - The array of point groups received.
  */
 export function handleIncomingDrawData(data) {
-    if (!ctx || !canvas) return;
-
-    // Denormalize coordinates
-    const x1 = data.x1 !== undefined ? data.x1 * canvas.width : undefined;
-    const y1 = data.y1 !== undefined ? data.y1 * canvas.height : undefined;
-    const x2 = data.x2 !== undefined ? data.x2 * canvas.width : undefined;
-    const y2 = data.y2 !== undefined ? data.y2 * canvas.height : undefined;
-
-    // Server sends DRAWING_UPDATE for line segments
-    if (x1 !== undefined && y1 !== undefined && x2 !== undefined && y2 !== undefined) {
-        drawLine(x1, y1, x2, y2, data.color, data.size);
-    } else {
-        console.warn("Received incomplete draw data:", data);
+    if (signaturePad && !isDrawingEnabledLocally) { // Only apply if not the current drawer
+        try {
+            console.log(`[Canvas] Received ${data?.length || 0} stroke groups from server.`);
+            signaturePad.fromData(data || []); // Load the full drawing data
+        } catch (error) {
+            console.error("[Canvas] Error applying incoming drawing data:", error);
+            // Maybe clear canvas or request full state?
+        }
+    } else if (!signaturePad) {
+         console.warn("[Canvas] Received draw data but SignaturePad not initialized.");
     }
 }
 
-
-// Exported clearCanvas now only clears locally, event emission is handled elsewhere.
-/** Clears the entire canvas locally. */
-export function clearCanvas() {
-    if (!ctx || !canvas) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    console.log("Canvas cleared locally via instruction.");
-}
-
-// --- Helpers ---
-
-/**
- * Gets the correct coordinates relative to the canvas from a mouse or touch event.
- * @param {MouseEvent | Touch} e - The event object.
- * @returns {Array<number>} An array containing [x, y] coordinates.
- */
-function getEventCoordinates(e) {
-    if (!canvas) return [0, 0]; // Should not happen if initialized
-    const rect = canvas.getBoundingClientRect();
-    let clientX, clientY;
-
-    if (e.clientX !== undefined) { // MouseEvent or Touch object
-        clientX = e.clientX;
-        clientY = e.clientY;
-    } else { // Fallback for unexpected event types
-        console.warn("Could not get coordinates from event:", e);
-        return [lastX, lastY]; // Return last known coordinates
-    }
-
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    return [x, y];
-}
+// Removed old drawing functions (startDrawing, draw, stopDrawing, drawLine, etc.)
+// Removed getEventCoordinates helper

@@ -58,4 +58,12 @@ const STANDARDIZED_EVENTS = {
 };
 
 
-module.exports = STANDARDIZED_EVENTS;
+// Other Game Constants
+const MAX_PLAYERS = 8;
+const DEFAULT_SCORE_GOAL = 50;
+
+module.exports = {
+    ...STANDARDIZED_EVENTS, // Spread the event names
+    MAX_PLAYERS,
+    DEFAULT_SCORE_GOAL
+};
