@@ -1,0 +1,257 @@
+/* Base Styles */
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    background-color: #f7faff; /* Lighter blue-ish background */
+}
+body {
+    font-family: 'Nunito', sans-serif; /* Use Nunito */
+    touch-action: manipulation;
+}
+
+/* Drawing Canvas */
+.drawing-canvas {
+    border: 2px solid #e5e7eb; /* gray-200 */
+    cursor: crosshair;
+    touch-action: none;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    background-color: #ffffff;
+    border-radius: 1rem; /* rounded-xl */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    max-width: 100%;
+}
+
+/* Top Bar */
+#top-bar {
+    background-color: #ffffff;
+    border-radius: 1rem; /* rounded-xl */
+    padding: 0.5rem 0.75rem; /* p-2 p-3 */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    margin-bottom: 0.75rem; /* mb-3 */
+}
+.active-player-indicator {
+     font-weight: 700; /* bold */
+     color: #16a34a; /* green-600 */
+}
+#top-bar-timer {
+    color: #ef4444; /* red-500 */
+    font-weight: 700;
+}
+#toggle-score-btn { /* Score button style */
+    background-color: #e0f2fe; /* sky-100 */
+    color: #0ea5e9; /* sky-500 */
+    font-weight: 700;
+    padding: 0.25rem 0.75rem; /* py-1 px-3 */
+    border-radius: 0.75rem; /* rounded-xl */
+    font-size: 0.75rem; /* text-xs */
+    transition: background-color 0.2s;
+}
+#toggle-score-btn:hover {
+    background-color: #bae6fd; /* sky-200 */
+}
+
+/* Message Box */
+#message-box {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    border-radius: 1rem; /* rounded-xl */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    display: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    max-width: 90%;
+    text-align: center;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+/* Brighter message colors */
+.message-success { background-color: #dcfce7; color: #16a34a; border-color: #bbf7d0;} /* green */
+.message-info { background-color: #e0f2fe; color: #0ea5e9; border-color: #bae6fd;} /* sky */
+.message-warning { background-color: #fef9c3; color: #ca8a04; border-color: #fef08a;} /* yellow */
+
+/* Scrollbar */
+#chat-messages::-webkit-scrollbar { display: none; }
+#chat-messages { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Utils */
+.min-h-0 { min-height: 0; }
+.min-w-0 { min-width: 0; }
+
+/* Collapse Buttons */
+.collapse-button {
+    background: none;
+    border: none;
+    padding: 0.25rem;
+    margin-left: 0.5rem;
+    cursor: pointer;
+    font-size: 1rem; /* Larger icon */
+    color: #9ca3af; /* gray-400 */
+    transition: color 0.2s;
+}
+.collapse-button:hover { color: #374151; /* gray-700 */ }
+
+/* Collapsible Content */
+.collapsible-content {
+    overflow: hidden;
+    transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out;
+    max-height: 1000px;
+    opacity: 1;
+}
+.collapsible-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    border-width: 0 !important; /* Hide border when collapsed */
+}
+
+/* Section Styling */
+#game-area {
+    padding: 0.75rem;
+}
+.section-container {
+     border: none; /* Remove border */
+     border-radius: 1rem; /* rounded-xl */
+     padding: 1rem; /* p-4 */
+     background-color: #ffffff;
+     margin-bottom: 1rem; /* mb-4 */
+     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04); /* Softer shadow */
+}
+ .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem; /* mb-3 */
+    padding-bottom: 0.5rem; /* pb-2 */
+    border-bottom: 1px solid #f3f4f6; /* gray-100 */
+ }
+ .section-title {
+    font-size: 1.125rem; /* text-lg */
+    font-weight: 700; /* bold */
+    color: #374151; /* gray-700 */
+ }
+
+/* Input & Button Styling */
+input[type="text"], input[type="number"] {
+    border: 2px solid #e5e7eb; /* gray-200 */
+    border-radius: 0.75rem; /* rounded-xl */
+    padding: 0.6rem 0.8rem;
+    font-weight: 600;
+    transition: border-color 0.2s;
+}
+input[type="text"]:focus, input[type="number"]:focus {
+    outline: none;
+    border-color: #22c55e; /* green-500 */
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+/* General Button Style */
+.btn {
+    display: inline-block;
+    padding: 0.75rem 1.25rem; /* py-3 px-5 */
+    border-radius: 1rem; /* rounded-xl */
+    font-weight: 700; /* bold */
+    text-transform: uppercase; /* Uppercase text like Duolingo */
+    font-size: 0.875rem; /* text-sm */
+    border: none;
+    border-bottom: 4px solid; /* 3D effect */
+    transition: transform 0.1s, background-color 0.2s, border-color 0.2s;
+    cursor: pointer;
+}
+.btn:active {
+    transform: translateY(2px); /* Press down effect */
+    border-bottom-width: 2px;
+}
+.btn-primary { /* Green button */
+    background-color: #22c55e; /* green-500 */
+    color: white;
+    border-color: #15803d; /* green-700 */
+}
+.btn-primary:hover {
+    background-color: #16a34a; /* green-600 */
+}
+.btn-primary:disabled {
+    background-color: #d1d5db; /* gray-300 */
+    color: #9ca3af; /* gray-400 */
+    border-color: #9ca3af; /* gray-400 */
+    cursor: not-allowed;
+}
+.btn-secondary { /* Blue button */
+    background-color: #3b82f6; /* blue-500 */
+    color: white;
+    border-color: #1d4ed8; /* blue-700 */
+}
+.btn-secondary:hover {
+    background-color: #2563eb; /* blue-600 */
+}
+ .btn-danger { /* Red button */
+    background-color: #ef4444; /* red-500 */
+    color: white;
+    border-color: #b91c1c; /* red-700 */
+}
+.btn-danger:hover {
+    background-color: #dc2626; /* red-600 */
+}
+ .btn-warning { /* Yellow button */
+    background-color: #facc15; /* yellow-400 */
+    color: #422006; /* brown-ish */
+    border-color: #ca8a04; /* yellow-600 */
+    font-weight: 700;
+}
+.btn-warning:hover {
+    background-color: #eab308; /* yellow-500 */
+}
+ .btn-gray { /* Gray button */
+    background-color: #e5e7eb; /* gray-200 */
+    color: #4b5563; /* gray-600 */
+    border-color: #9ca3af; /* gray-400 */
+}
+.btn-gray:hover {
+    background-color: #d1d5db; /* gray-300 */
+}
+
+/* Specific Element Adjustments */
+#guess-input-container { display: flex; gap: 0.5rem; /* Add gap */}
+#guess-input { flex-grow: 1; border-radius: 0.75rem; } /* Ensure full rounding */
+#send-guess-btn { border-radius: 0.75rem; flex-shrink: 0;} /* Ensure full rounding */
+#clear-canvas-btn { padding: 0.5rem 1rem; font-size: 0.75rem;} /* Smaller clear button */
+#show-letter-btn { padding: 0.5rem 1rem; font-size: 0.75rem;} /* Smaller show letter button */
+#end-game-btn { width: 100%; max-width: none; } /* Full width end button */
+
+/* Player Score List Item */
+.player-score-item {
+     background-color: #f3f4f6; /* gray-100 */
+     padding: 0.5rem 0.75rem;
+     border-radius: 0.75rem; /* rounded-xl */
+     display: flex;
+     justify-content: space-between;
+     align-items: center;
+     font-size: 0.875rem; /* text-sm */
+     margin-bottom: 0.25rem; /* mb-1 */
+}
+ .player-score-item.active {
+     background-color: #dcfce7; /* green-100 */
+     font-weight: 700;
+ }
+ .player-score-item .player-name { color: #374151; font-weight: 600; }
+ .player-score-item .player-points { color: #1d4ed8; font-weight: 700; } /* blue-700 */
+
+/* Chat Message Style */
+#chat-messages { background-color: #f9fafb; border-radius: 0.75rem; } /* gray-50 */
+.chat-message {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem; /* text-sm */
+    line-height: 1.4;
+}
+.chat-message strong { font-weight: 700; }
+.chat-message.system { color: #581c87; font-style: italic;} /* purple-900 */
+.chat-message.correct { color: #16a34a; font-weight: 700;} /* green-600 */
+.chat-message.guess { color: #374151; } /* gray-700 */
