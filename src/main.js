@@ -1,210 +1,406 @@
-import * as dom from './dom.js';
-import * as ui from './ui.js';
+import { createApp } from 'https://unpkg.com/petite-vue?module'; // Import module version
 import * as socket from './socket.js';
 import * as canvas from './canvas.js';
-import * as uiInteractions from './uiInteractions.js';
 import * as constants from './constants.js';
-const { VIEWS, SOCKET_EVENTS } = constants; // Destructure for easier use
+import * as uiInteractions from './uiInteractions.js'; // Keep for toggling sections for now
 
-// --- State ---
-let currentPlayer = null; // { id, name, score }
-let currentRoom = null;
-let isHost = false;
+const { VIEWS, SOCKET_EVENTS, DEFAULT_SCORE_GOAL } = constants;
 
-// --- Initialization ---
-function init() {
-    console.log("Game initializing...");
-    ui.showView(VIEWS.INITIAL_SETUP);
-    setupEventListeners();
-    // Don't connect socket here initially. Connect on create/join.
-}
+// Define the main reactive application state and methods
+const appState = {
+    // --- State Properties ---
+    currentView: VIEWS.INITIAL_SETUP,
+    // Input Models
+    playerNameInput: '',
+    roomIdInput: '',
+    lobbyScoreGoalInput: DEFAULT_SCORE_GOAL,
+    chatInput: '',
+    guessInput: '',
+    // App State
+    player: null, // { id, name, score }
+    room: null, // { id, players: [], hostId, settings: { scoreGoal }, gameState? }
+    setupError: null, // { message: string }
+    messages: [], // { sender, message, type }
+    currentWord: null, // { script, latin } - for drawer
+    isDrawing: false,
+    timeLeft: 0,
+    notification: null, // { message, type, timeoutId }
+    // Canvas State (might be managed more directly by canvas.js, but useful here)
+    currentColor: '#000000',
+    brushSize: 3,
+    // UI State
+    isScoreboardVisible: false,
+    isDrawingVisible: true,
+    isChatVisible: true,
 
-// --- Event Listeners ---
-function setupEventListeners() {
-    // Initial Setup
-    dom.createRoomBtn.addEventListener('click', handleCreateRoom);
-    dom.joinRoomBtn.addEventListener('click', handleJoinRoom);
+    // --- Computed Properties (Getters) ---
+    get isHost() {
+        return this.player?.id === this.room?.hostId;
+    },
+    get canStartGame() {
+        return this.isHost && this.room?.players?.length >= 2;
+    },
+    get playersSorted() {
+        // Basic sort, could be more complex
+        return this.room?.players?.slice().sort((a, b) => b.score - a.score) || [];
+    },
+    get teamScore() {
+        return this.room?.players?.reduce((sum, p) => sum + p.score, 0) || 0;
+    },
 
-    // Lobby
-    dom.lobbyStartGameBtn.addEventListener('click', handleStartGame);
-    dom.leaveRoomBtn.addEventListener('click', handleLeaveRoom);
-
-    // Game Area
-    // TODO: Add game area listeners (canvas, guess, chat, etc.)
-    dom.toggleScoreBtn.addEventListener('click', uiInteractions.toggleScoreboard);
-    dom.toggleDrawingBtn.addEventListener('click', () => uiInteractions.toggleSection('drawing-content'));
-    dom.toggleChatBtn.addEventListener('click', () => uiInteractions.toggleSection('chat-content'));
-    dom.endGameBtn.addEventListener('click', handleLeaveRoom); // Changed to leave room for simplicity now
-}
-
-/** Sets up listeners for events coming FROM the server */
-function setupSocketListeners() {
-    socket.on(SOCKET_EVENTS.ROOM_UPDATE, handleRoomUpdate);
-    // TODO: Add listeners for other events like gameStarted, newTurn, chatUpdate, etc.
-    // socket.on(SOCKET_EVENTS.GAME_STARTED, handleGameStarted);
-    // socket.on(SOCKET_EVENTS.NEW_TURN, handleNewTurn);
-    // socket.on(SOCKET_EVENTS.CHAT_UPDATE, handleChatUpdate);
-    // socket.on(SOCKET_EVENTS.GUESS_RESULT, handleGuessResult);
-    // socket.on(SOCKET_EVENTS.SCORE_UPDATE, handleScoreUpdate);
-    // socket.on(SOCKET_EVENTS.TIMER_UPDATE, ui.updateTimerDisplay); // Direct UI update if simple
-    // socket.on(SOCKET_EVENTS.GAME_OVER, handleGameOver);
-    // socket.on('yourTurnToDraw', handleYourTurn); // Custom event from gameLogic
-    // socket.on(SOCKET_EVENTS.DRAWING_UPDATE, canvas.handleIncomingDrawData); // Pass drawing data to canvas module
-    // socket.on(SOCKET_EVENTS.CLEAR_CANVAS_UPDATE, canvas.clearCanvas); // Clear canvas on remote instruction
-}
-
-// --- Event Handlers ---
-
-function handleCreateRoom() {
-    const playerName = dom.playerNameInput.value.trim();
-    if (!playerName) {
-        ui.showSetupError("Please enter your name.");
-        return;
-    }
-    // Store name, ID will come from server
-    currentPlayer = { name: playerName, id: null, score: 0 };
-    isHost = true;
-    console.log(`Player ${playerName} attempting to create room...`);
-    ui.hideSetupError();
-
-    socket.connect(); // Connect the socket
-    socket.emit(SOCKET_EVENTS.CREATE_ROOM, playerName, (response) => {
-        console.log("Create room response:", response);
-        if (response.success) {
-            currentPlayer.id = socket.socket.id; // Use the actual socket ID
-            currentRoom = {
-                id: response.roomId,
-                players: response.players,
-                hostId: response.hostId,
-                settings: { scoreGoal: constants.DEFAULT_SCORE_GOAL } // Use default initially
-            };
-            setupSocketListeners(); // Register listeners AFTER successful connection/room creation
-            ui.updateLobbyView(currentRoom, currentPlayer.id, isHost);
-            ui.showView(VIEWS.LOBBY);
+    // --- Methods (Event Handlers) ---
+    showError(message, isSetupError = false) {
+        console.error("Error:", message);
+        if (isSetupError) {
+            this.setupError = { message };
         } else {
-            ui.showSetupError(response.message || "Failed to create room.");
-            socket.disconnect(); // Disconnect on failure
-            isHost = false;
-            currentPlayer = null;
+            this.showNotification(message, 'error');
         }
-    });
-}
+    },
+    clearError() {
+        this.setupError = null;
+    },
+    showNotification(message, type = 'info', duration = 3000) {
+        if (this.notification?.timeoutId) {
+            clearTimeout(this.notification.timeoutId);
+        }
+        const timeoutId = setTimeout(() => {
+            this.notification = null;
+        }, duration);
+        this.notification = { message, type, timeoutId };
+    },
+    resetState() {
+        this.player = null;
+        this.room = null;
+        this.isDrawing = false;
+        this.currentWord = null;
+        this.messages = [];
+        this.timeLeft = 0;
+        this.lobbyScoreGoalInput = DEFAULT_SCORE_GOAL;
+        this.clearError();
+        // Don't reset inputs automatically, user might want to retry
+    },
+    createRoom() {
+        this.clearError();
+        const name = this.playerNameInput.trim();
+        if (!name) {
+            this.showError("Please enter your name.", true);
+            return;
+        }
+        console.log(`Player ${name} attempting to create room...`);
+        this.connectAndEmit(SOCKET_EVENTS.CREATE_ROOM, { playerName: name });
+    },
+    joinRoom() {
+        this.clearError();
+        const name = this.playerNameInput.trim();
+        const roomId = this.roomIdInput.trim().toUpperCase();
+        if (!name) {
+            this.showError("Please enter your name.", true);
+            return;
+        }
+        if (!roomId || roomId.length !== 4) {
+            this.showError("Please enter a valid 4-digit room code.", true);
+            return;
+        }
+        console.log(`Player ${name} attempting to join room ${roomId}...`);
+        this.connectAndEmit(SOCKET_EVENTS.JOIN_ROOM, roomId, name);
+    },
+    leaveRoom() {
+        console.log("Leaving room...");
+        socket.disconnect(); // Server handles cleanup on disconnect
+        this.resetState();
+        this.currentView = VIEWS.INITIAL_SETUP;
+        canvas.clearCanvas();
+        canvas.setDrawingEnabled(false);
+    },
+    startGame() {
+        if (!this.canStartGame) return;
+        const goal = parseInt(this.lobbyScoreGoalInput, 10);
+        if (isNaN(goal) || goal < 10) {
+            this.showNotification("Please set a valid score goal (minimum 10).", "error");
+            return;
+        }
+        console.log(`Host requesting to start game with score goal: ${goal}`);
+        socket.emit(SOCKET_EVENTS.START_GAME, this.room.id, goal);
+    },
+    sendMessage() {
+        const message = this.chatInput.trim();
+        if (message && this.room) {
+            socket.emit(SOCKET_EVENTS.SEND_MESSAGE, this.room.id, message);
+            this.chatInput = ''; // Clear input
+        }
+    },
+    sendGuess() {
+        const guess = this.guessInput.trim();
+        if (guess && this.room && !this.isDrawing) {
+            socket.emit(SOCKET_EVENTS.SEND_GUESS, this.room.id, guess);
+            this.guessInput = ''; // Clear input
+        }
+    },
+    clearCanvasClick() {
+        if (this.room && this.isDrawing) {
+            socket.emit(SOCKET_EVENTS.CLEAR_CANVAS, this.room.id);
+            // Server broadcasts update to all, including drawer
+        }
+    },
+    // Basic toggle implementations - uiInteractions could be removed if not needed elsewhere
+    toggleScoreboard() {
+        this.isScoreboardVisible = !this.isScoreboardVisible;
+        // Could use uiInteractions.toggleScoreboard if it does more complex things
+    },
+    toggleSection(sectionId) {
+         if (sectionId === 'drawing-content') this.isDrawingVisible = !this.isDrawingVisible;
+         if (sectionId === 'chat-content') this.isChatVisible = !this.isChatVisible;
+        // Could use uiInteractions.toggleSection if it does more complex things
+    },
+    // Canvas interaction handlers (called from @input)
+    handleColorChange(event) {
+        this.currentColor = event.target.value;
+        canvas.setCurrentColor(this.currentColor);
+    },
+    handleBrushSizeChange(event) {
+        this.brushSize = event.target.value;
+        canvas.setBrushSize(this.brushSize);
+    },
 
-function handleJoinRoom() {
-    const playerName = dom.playerNameInput.value.trim();
-    const roomId = dom.roomIdInput.value.trim().toUpperCase();
-    if (!playerName) {
-        ui.showSetupError("Please enter your name.");
-        return;
-    }
-    if (!roomId || roomId.length !== 4) { // Assuming 4-digit codes
-        ui.showSetupError("Please enter a valid 4-digit room code.");
-        return;
-    }
-    // Store name, ID will come from server
-    currentPlayer = { name: playerName, id: null, score: 0 };
-    isHost = false;
-    console.log(`Player ${playerName} attempting to join room ${roomId}...`);
-    ui.hideSetupError();
-
-    socket.connect(); // Connect the socket
-    socket.emit(SOCKET_EVENTS.JOIN_ROOM, roomId, playerName, (response) => {
-        console.log("Join room response:", response);
-        if (response.success) {
-            currentPlayer.id = socket.socket.id; // Use the actual socket ID
-            currentRoom = {
-                id: response.roomId,
-                players: response.players,
-                hostId: response.hostId,
-                settings: { scoreGoal: constants.DEFAULT_SCORE_GOAL } // Use default initially, server might send updated one later
-            };
-            setupSocketListeners(); // Register listeners AFTER successful connection/room join
-            ui.updateLobbyView(currentRoom, currentPlayer.id, isHost);
-            ui.showView(VIEWS.LOBBY);
+    // --- Socket Connection Helper ---
+    connectAndEmit(event, ...args) {
+        const isReconnect = socket.isConnected(); // Check if already connected
+        if (isReconnect) {
+             console.log("Socket already connected, emitting directly:", event);
+             this._emitWithAcknowledgement(event, ...args);
         } else {
-            ui.showSetupError(response.message || "Failed to join room.");
-            socket.disconnect(); // Disconnect on failure
-            currentPlayer = null;
+            console.log("Connecting socket before emitting:", event);
+            socket.connect();
+
+            const handleConnect = () => {
+                console.log("Socket connected, now emitting:", event);
+                this._emitWithAcknowledgement(event, ...args);
+                removeConnectListeners();
+            };
+            const handleConnectError = (error) => {
+                console.error(`Failed to connect for ${event}:`, error);
+                this.showError(`Failed to connect: ${error.message || 'Unknown error'}`, true);
+                this.resetState();
+                removeConnectListeners();
+            };
+            const removeConnectListeners = () => {
+                socket.off('connect', handleConnect);
+                socket.off('connect_error', handleConnectError);
+            };
+            socket.on('connect', handleConnect);
+            socket.on('connect_error', handleConnectError);
         }
-    });
-}
+    },
 
-function handleStartGame() {
-    if (!isHost) {
-        console.warn("Only the host can start the game.");
-        return;
+    // Helper for emitting events that expect an acknowledgement callback
+    _emitWithAcknowledgement(event, ...args) {
+        const potentialId = socket.getSocketId();
+        if (!potentialId) {
+            this.showError("Connected, but failed to get session ID. Please try again.", true);
+            socket.disconnect();
+            this.resetState();
+            return;
+        }
+         // Update player state immediately if not already set (important for CREATE_ROOM)
+        if (!this.player || !this.player.id) {
+             this.player = { name: this.playerNameInput.trim(), id: potentialId, score: 0 };
+        }
+
+
+        // Prepare arguments for emit, including the callback
+        const emitArgs = [];
+        let payload = {}; // Default payload
+
+        if (event === SOCKET_EVENTS.CREATE_ROOM) {
+            payload = { playerName: this.player.name, playerId: this.player.id };
+            emitArgs.push(payload);
+        } else if (event === SOCKET_EVENTS.JOIN_ROOM) {
+            const [roomId, playerName] = args; // Extract original args
+            payload = { roomId, playerName, playerId: this.player.id }; // Server expects roomId, playerName
+            emitArgs.push(roomId, playerName); // Pass original args expected by server
+        } else {
+             // For other events if needed, assume args[0] is the main payload
+             if(args.length > 0) emitArgs.push(args[0]);
+        }
+
+
+        // Add the acknowledgement callback
+        emitArgs.push((response) => {
+            console.log(`${event} response:`, response);
+            if (response.success) {
+                // Update state based on successful room creation/join
+                this.room = {
+                    id: response.roomId,
+                    players: response.players,
+                    hostId: response.hostId,
+                    settings: { scoreGoal: this.lobbyScoreGoalInput } // Use current input value
+                };
+                this.player = response.players.find(p => p.id === this.player.id) || this.player; // Update player score if needed
+                this.currentView = VIEWS.LOBBY;
+                this.registerSocketListeners(); // Register persistent listeners *after* success
+            } else {
+                this.showError(response.message || `Failed to ${event}.`, true);
+                socket.disconnect(); // Disconnect on failure
+                this.resetState();
+            }
+        });
+
+        // Emit the event
+        socket.emit(event, ...emitArgs);
+    },
+
+
+    // --- Socket Event Listeners Setup ---
+    registerSocketListeners() {
+        console.log("Registering persistent socket listeners...");
+        // Remove potential old listeners before adding new ones (important for reconnects/rejoins)
+        socket.off(SOCKET_EVENTS.ROOM_UPDATE);
+        socket.off(SOCKET_EVENTS.PLAYER_LEFT);
+        socket.off(SOCKET_EVENTS.NEW_HOST);
+        socket.off(SOCKET_EVENTS.GAME_STARTED);
+        socket.off(SOCKET_EVENTS.NEW_TURN);
+        socket.off(SOCKET_EVENTS.YOUR_TURN_TO_DRAW);
+        socket.off(SOCKET_EVENTS.DRAWING_UPDATE);
+        socket.off(SOCKET_EVENTS.CLEAR_CANVAS_UPDATE);
+        socket.off(SOCKET_EVENTS.CHAT_MESSAGE);
+        socket.off(SOCKET_EVENTS.GUESS_RESULT);
+        socket.off(SOCKET_EVENTS.SCORE_UPDATE);
+        socket.off(SOCKET_EVENTS.TIMER_UPDATE);
+        socket.off(SOCKET_EVENTS.GAME_OVER);
+        socket.off(SOCKET_EVENTS.ERROR);
+        socket.off(SOCKET_EVENTS.DISCONNECT);
+        // connect_error is handled per-action
+
+        // --- Add new listeners ---
+        socket.on(SOCKET_EVENTS.ROOM_UPDATE, (data) => {
+            console.log("Socket: ROOM_UPDATE", data);
+            if (this.room && this.room.id === data.roomId) {
+                this.room.players = data.players;
+                this.room.hostId = data.hostId;
+                // Update current player data from the list
+                 const updatedSelf = data.players.find(p => p.id === this.player?.id);
+                 if (updatedSelf) this.player = { ...updatedSelf };
+            }
+        });
+        socket.on(SOCKET_EVENTS.PLAYER_LEFT, (data) => {
+             console.log("Socket: PLAYER_LEFT", data);
+             this.messages.push({ sender: 'System', message: `${data.playerName} left the room.`, type: 'system' });
+             // ROOM_UPDATE will handle the list change
+        });
+         socket.on(SOCKET_EVENTS.NEW_HOST, (data) => {
+             console.log("Socket: NEW_HOST", data);
+             if (this.room) {
+                 this.room.hostId = data.hostId;
+                 this.messages.push({ sender: 'System', message: `${data.hostName} is now the host.`, type: 'system' });
+             }
+        });
+        socket.on(SOCKET_EVENTS.GAME_STARTED, (data) => {
+            console.log("Socket: GAME_STARTED", data);
+             if (this.room) {
+                 this.room.settings.scoreGoal = data.scoreGoal;
+                 this.currentView = VIEWS.GAME_AREA;
+                 this.messages = []; // Clear messages for new game
+                 this.isScoreboardVisible = false; // Reset UI state
+                 this.isDrawingVisible = true;
+                 this.isChatVisible = true;
+                 // Ensure canvas element is passed if initCanvas needs it
+                 const canvasEl = document.getElementById('drawing-canvas'); // Get canvas element when needed
+                 if (canvasEl) {
+                    canvas.initCanvas(canvasEl);
+                    canvas.clearCanvas();
+                 } else {
+                    console.error("Drawing canvas element not found for init!");
+                 }
+             }
+        });
+        socket.on(SOCKET_EVENTS.NEW_TURN, (data) => {
+            console.log("Socket: NEW_TURN", data);
+             if (this.room && this.player) {
+                 this.isDrawing = this.player.id === data.drawerId;
+                 this.currentWord = null; // Reset word
+                 this.timeLeft = data.timeLeft;
+                 canvas.setDrawingEnabled(this.isDrawing);
+                 canvas.clearCanvas();
+                 this.guessInput = ''; // Clear guess input
+                 this.messages.push({ sender: 'System', message: `${data.drawerName} is drawing!`, type: 'system' });
+                 // Update top bar drawer name directly if needed, or rely on computed property + HTML binding
+             }
+        });
+        socket.on(SOCKET_EVENTS.YOUR_TURN_TO_DRAW, (data) => {
+             console.log("Socket: YOUR_TURN_TO_DRAW", data);
+             this.currentWord = data.word;
+        });
+        socket.on(SOCKET_EVENTS.DRAWING_UPDATE, canvas.handleIncomingDrawData);
+        socket.on(SOCKET_EVENTS.CLEAR_CANVAS_UPDATE, canvas.clearCanvas);
+        socket.on(SOCKET_EVENTS.CHAT_MESSAGE, (data) => {
+             console.log("Socket: CHAT_MESSAGE", data);
+             this.messages.push({ sender: data.sender, message: data.message, type: data.type || 'chat' });
+             // Auto-scroll handled by HTML/CSS or a small directive later if needed
+        });
+        socket.on(SOCKET_EVENTS.GUESS_RESULT, (data) => {
+             console.log("Socket: GUESS_RESULT", data);
+             if (data.isCorrect) {
+                 this.messages.push({ sender: data.playerName, message: `guessed the word! (+${data.pointsAwarded} points)`, type: 'correct-guess' });
+             }
+             // Incorrect guesses are just normal chat messages from server
+        });
+        socket.on(SOCKET_EVENTS.SCORE_UPDATE, (data) => {
+             console.log("Socket: SCORE_UPDATE", data);
+             if (this.room) {
+                 this.room.players = data.players;
+                 // Update self from list
+                 const updatedSelf = data.players.find(p => p.id === this.player?.id);
+                 if (updatedSelf) this.player = { ...updatedSelf };
+             }
+        });
+        socket.on(SOCKET_EVENTS.TIMER_UPDATE, (data) => {
+             // console.log("Socket: TIMER_UPDATE", data); // Can be noisy
+             this.timeLeft = data.timeLeft;
+        });
+        socket.on(SOCKET_EVENTS.GAME_OVER, (data) => {
+             console.log("Socket: GAME_OVER", data);
+             this.isDrawing = false;
+             this.currentWord = null;
+             canvas.setDrawingEnabled(false);
+             this.showNotification(`Game Over! ${data.reason}`, 'info', 5000);
+             setTimeout(() => {
+                 if (this.room && this.player) {
+                     // Optionally reset scores in room.players here if desired
+                     this.currentView = VIEWS.LOBBY;
+                 } else {
+                     this.currentView = VIEWS.INITIAL_SETUP; // Fallback
+                 }
+             }, 5000);
+        });
+        socket.on(SOCKET_EVENTS.ERROR, (data) => {
+             console.error("Socket: ERROR", data);
+             this.showError(`Server Error: ${data.message || 'Unknown error'}`);
+        });
+        socket.on(SOCKET_EVENTS.DISCONNECT, (reason) => {
+             console.log(`Socket: DISCONNECT`, reason);
+             this.showNotification('Disconnected from server.', 'error');
+             this.resetState();
+             this.currentView = VIEWS.INITIAL_SETUP;
+             canvas.clearCanvas();
+             canvas.setDrawingEnabled(false);
+        });
+    },
+
+    // --- Initial Mount Logic ---
+    mount() {
+        console.log("Mounting petite-vue app...");
+        // Initial setup: Set canvas defaults
+        canvas.setCurrentColor(this.currentColor);
+        canvas.setBrushSize(this.brushSize);
+        // No need to register DOM listeners here, petite-vue handles it via directives
+        // No need to explicitly show initial view, v-if handles it
+        console.log("App mounted. Waiting for user interaction.");
     }
-    const scoreGoal = parseInt(dom.lobbyScoreGoalInput.value, 10);
-    if (isNaN(scoreGoal) || scoreGoal < 10) {
-        alert("Please set a valid score goal (minimum 10)."); // Simple alert for now
-        return;
-    }
-    console.log(`Host requesting to start game with score goal: ${scoreGoal}`);
-    // Emit event to server, server will validate and broadcast 'gameStarted' if successful
-    socket.emit(SOCKET_EVENTS.START_GAME, currentRoom.id, scoreGoal);
-    // Do not transition view here, wait for 'gameStarted' event from server
-}
+};
 
-function handleLeaveRoom() {
-    console.log("Leaving room...");
-    // TODO: Emit 'leaveRoom' event? Server handles disconnect anyway.
-    // For now, just disconnect locally. Server will detect disconnect.
-    socket.disconnect();
+// Create and mount the app
+createApp(appState).mount('#app-container'); // Mount to a container element
 
-    // Reset state and go back to initial setup
-    currentPlayer = null;
-    currentRoom = null;
-    isHost = false;
-    ui.resetLobbyView();
-    // TODO: Reset game view elements if leaving from game area
-    ui.showView(VIEWS.INITIAL_SETUP);
-}
-
-// --- Socket Event Handlers ---
-
-/** Handles updates to the room state (player list, host change, etc.) */
-function handleRoomUpdate(data) {
-    console.log("Received room update:", data);
-    if (!currentRoom || currentRoom.id !== data.roomId) {
-        console.warn("Received room update for wrong/unknown room.");
-        return;
-    }
-    // Update local state
-    currentRoom.players = data.players;
-    currentRoom.hostId = data.hostId;
-    // Update host status for current player
-    isHost = currentPlayer && currentPlayer.id === currentRoom.hostId;
-
-    // Re-render the lobby view with the new data
-    // TODO: Check if we are in the lobby view before updating it?
-    ui.updateLobbyView(currentRoom, currentPlayer?.id, isHost);
-
-    // TODO: If game is active, update player scores list in game view too
-    // if (currentRoom.gameState?.isGameActive) {
-    //     ui.updatePlayerScores(currentRoom.players, currentRoom.settings.scoreGoal);
-    // }
-}
-
-// TODO: Implement handlers for other socket events (gameStarted, newTurn, etc.)
-// function handleGameStarted(data) { ... ui.showView(VIEWS.GAME_AREA); canvas.initCanvas(); ... }
-// function handleNewTurn(data) { ... ui.updateTurnDisplay(...); canvas.setDrawingEnabled(...); ... }
-// function handleChatUpdate(data) { ... ui.addChatMessage(...); ... }
-// function handleGuessResult(data) { ... ui.addChatMessage(...); ... }
-// function handleScoreUpdate(data) { ... ui.updatePlayerScores(...); ... }
-// function handleGameOver(data) { ... ui.showNotification(...); ui.showView(VIEWS.LOBBY); ... }
-// function handleYourTurn(data) { ... ui.updateTurnDisplay(...); /* Store word */ ... }
-
-
-// --- Game Actions ---
-
-function handleEndGame() { // Renamed from original handleEndGame which was removed
-    console.log("Ending game...");
-    // TODO: Emit 'endGame' to server (if host) or handle leaving
-    // For now, just go back to lobby
-    ui.showView(constants.VIEWS.LOBBY);
-    // Maybe show final scores?
-}
-
-
-// --- Start the app ---
-init();
+// Call mount function after app is created
+appState.mount();

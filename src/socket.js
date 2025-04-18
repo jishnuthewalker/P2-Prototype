@@ -1,6 +1,7 @@
 // import io from '/socket.io/socket.io.js'; // Assuming Socket.IO client is loaded globally via script tag in HTML
 
 let socket = null;
+let socketId = null; // Store the ID locally
 
 /**
  * Establishes connection to the Socket.IO server.
@@ -65,17 +66,37 @@ export function on(eventName, callback) {
     }
 }
 
+/**
+ * Unregisters a listener for a specific server event.
+ * @param {string} eventName - The name of the event.
+ * @param {Function} callback - The specific callback function to remove.
+ */
+export function off(eventName, callback) {
+    // If socket is already null (e.g., during disconnect cleanup), just return.
+    if (!socket) {
+        return;
+    }
+    socket.off(eventName, callback);
+}
+
+/** Returns the current socket ID if connected, otherwise null. */
+export function getSocketId() {
+    return socketId;
+}
+
 /** Sets up default Socket.IO event listeners. */
 function setupEventListeners() {
     if (!socket) return;
 
     socket.on('connect', () => {
-        console.log(`Connected to server with ID: ${socket.id}`);
+        socketId = socket.id; // Store the ID when connected
+        console.log(`Connected to server with ID: ${socketId}`);
         // TODO: Handle successful connection (e.g., maybe emit join/create now?)
     });
 
     socket.on('disconnect', (reason) => {
         console.log(`Disconnected from server: ${reason}`);
+        socketId = null; // Clear stored ID on disconnect
         // TODO: Handle disconnection (e.g., show error message, return to setup screen)
         // ui.showNotification('Disconnected from server.', 'error');
         // ui.showView(constants.VIEWS.INITIAL_SETUP); // Or a specific disconnected view

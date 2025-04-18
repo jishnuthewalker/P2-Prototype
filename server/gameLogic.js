@@ -23,18 +23,8 @@ const KANNADA_LETTERS = [
 
 const TURN_DURATION_SECONDS = 90; // Example turn duration
 
-// Define event names (should match server.js) - Consider sharing constants
-const EVENTS = {
-    ROOM_UPDATE: 'roomUpdate',
-    GAME_STARTED: 'gameStarted',
-    NEW_TURN: 'newTurn',
-    GUESS_RESULT: 'guessResult',
-    SCORE_UPDATE: 'scoreUpdate',
-    TIMER_UPDATE: 'timerUpdate',
-    GAME_OVER: 'gameOver',
-    CHAT_UPDATE: 'chatUpdate',
-    CLEAR_CANVAS_UPDATE: 'clearCanvasUpdate',
-};
+// Use shared constants
+const EVENTS = require('./constants');
 
 
 /**
@@ -100,8 +90,8 @@ function startNewTurn(io, room) {
         timeLeft: room.gameState.timeLeft,
     });
 
-    // Send the word only to the drawer
-    io.to(currentDrawer.id).emit('yourTurnToDraw', {
+    // Send the word only to the drawer using the standardized event name
+    io.to(currentDrawer.id).emit(EVENTS.YOUR_TURN_TO_DRAW, {
         word: room.gameState.currentWord // Send the { script, latin } object
     });
 

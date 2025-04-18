@@ -2,9 +2,10 @@
   "name": "kaliyo-multiplayer",
   "version": "1.0.0",
   "description": "Multiplayer Kannada Pictionary Game Server",
-  "main": "server.js",
+  "main": "server/server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server/server.js",
+    "dev": "nodemon server/server.js"
   },
   "dependencies": {
     "express": "^4.17.1",

@@ -1,5 +1,7 @@
 import * as dom from './dom.js';
 import * as socket from './socket.js'; // To send drawing data
+import * as state from './state.js'; // To get room ID and drawing status
+import { SOCKET_EVENTS } from './constants.js'; // To use correct event names
 
 let canvas = null;
 let ctx = null;
@@ -8,7 +10,7 @@ let lastX = 0;
 let lastY = 0;
 let currentBrushSize = 3;
 let currentColor = '#000000';
-let canDraw = false; // Controlled by game logic (is it my turn?)
+// let canDraw = false; // Replaced by state.isCurrentUserDrawing() check or pointer-events style
 
 /** Initializes the canvas and sets up event listeners. */
 export function initCanvas() {
@@ -42,17 +44,21 @@ export function initCanvas() {
     // Listen for window resize to adjust canvas
     window.addEventListener('resize', resizeCanvas);
 
-    // Set initial brush properties
-    setBrushSize(dom.brushSizeSlider.value);
-    setColor(dom.colorPicker.value);
+    // Set initial brush properties from DOM elements
+    currentBrushSize = parseInt(dom.brushSizeSlider.value, 10);
+    currentColor = dom.colorPicker.value;
+    if(ctx) {
+        ctx.lineWidth = currentBrushSize;
+        ctx.strokeStyle = currentColor;
+    }
 
-    // Setup listeners for controls
-    dom.colorPicker.addEventListener('input', (e) => setColor(e.target.value));
-    dom.brushSizeSlider.addEventListener('input', (e) => setBrushSize(e.target.value));
-    dom.clearCanvasBtn.addEventListener('click', clearCanvas);
+    // Remove redundant listeners - these are now set in handlers.js/registerDOMListeners
+    // dom.colorPicker.addEventListener('input', (e) => setColor(e.target.value));
+    // dom.brushSizeSlider.addEventListener('input', (e) => setBrushSize(e.target.value));
+    // dom.clearCanvasBtn.addEventListener('click', clearCanvas); // This is handled by handleClearCanvasClick in handlers.js
 
     console.log("Canvas initialized.");
-    setDrawingEnabled(false); // Disabled by default
+    setDrawingEnabled(false); // Disabled by default, enabled/disabled via handlers.js -> handleNewTurn
 }
 
 /** Adjusts canvas size to fit its container. */
@@ -80,20 +86,44 @@ function resizeCanvas() {
     console.log(`Canvas resized to: ${canvas.width}x${canvas.height}`);
 }
 
-/** Enables or disables drawing on the canvas. */
+/**
+ * Enables or disables drawing controls and canvas interaction.
+ * Called by handlers based on game state (e.g., handleNewTurn).
+ */
 export function setDrawingEnabled(enabled) {
-    canDraw = enabled;
+    // canDraw = enabled; // No longer needed, rely on pointerEvents
+    if (!canvas) return;
     canvas.style.cursor = enabled ? 'crosshair' : 'not-allowed';
-    canvas.style.pointerEvents = enabled ? 'auto' : 'none'; // Also control pointer events
-    // Disable/enable controls
+    // Prevent events entirely when not allowed to draw
+    canvas.style.pointerEvents = enabled ? 'auto' : 'none';
+    // Disable/enable controls associated with drawing
     dom.colorPicker.disabled = !enabled;
     dom.brushSizeSlider.disabled = !enabled;
     dom.clearCanvasBtn.disabled = !enabled;
     console.log(`Drawing enabled: ${enabled}`);
 }
 
+/** Sets the current brush color (called by event listener in handlers.js). */
+export function setCurrentColor(color) {
+    currentColor = color;
+    if (ctx) {
+        ctx.strokeStyle = currentColor;
+    }
+    // console.log(`Brush color set to: ${color}`); // Less verbose logging
+}
+
+/** Sets the current brush size (called by event listener in handlers.js). */
+export function setBrushSize(size) {
+    currentBrushSize = parseInt(size, 10);
+    if (ctx) {
+        ctx.lineWidth = currentBrushSize;
+    }
+    // console.log(`Brush size set to: ${size}`); // Less verbose logging
+}
+
+
 function startDrawing(e) {
-    if (!canDraw) return;
+    // No need for canDraw check if pointerEvents is 'none'
     isDrawing = true;
     [lastX, lastY] = getEventCoordinates(e);
     // Optional: Draw a dot on click
@@ -102,11 +132,14 @@ function startDrawing(e) {
 }
 
 function draw(e) {
-    if (!isDrawing || !canDraw) return;
+    // No need for canDraw check if pointerEvents is 'none'
+    if (!isDrawing) return;
     const [currentX, currentY] = getEventCoordinates(e);
 
+    // Draw locally first
     drawLine(lastX, lastY, currentX, currentY);
-    sendDrawData('draw', lastX, lastY, currentX, currentY); // Send draw segment
+    // Send data for broadcast
+    sendDrawData(lastX, lastY, currentX, currentY);
 
     [lastX, lastY] = [currentX, currentY];
 }
@@ -119,14 +152,15 @@ function stopDrawing() {
 
 // --- Touch Event Handlers ---
 function handleTouchStart(e) {
-    if (!canDraw) return;
+    // No need for canDraw check if pointerEvents is 'none'
     e.preventDefault(); // Prevent scrolling/default touch actions
     const touch = e.touches[0];
     startDrawing(touch);
 }
 
 function handleTouchMove(e) {
-    if (!isDrawing || !canDraw) return;
+    // No need for canDraw check if pointerEvents is 'none'
+    if (!isDrawing) return;
     e.preventDefault(); // Prevent scrolling/default touch actions
     const touch = e.touches[0];
     draw(touch);
@@ -155,58 +189,33 @@ export function drawLine(x1, y1, x2, y2, color = currentColor, size = currentBru
     ctx.closePath();
 }
 
-/** Clears the entire canvas. */
-export function clearCanvas() {
-    if (!ctx || !canvas) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    console.log("Canvas cleared.");
-    if (canDraw) { // Only send clear event if the current user initiated it
-       sendDrawData('clear');
-    }
-}
-
-/** Sets the current brush color. */
-export function setColor(color) {
-    currentColor = color;
-    if (ctx) {
-        ctx.strokeStyle = currentColor;
-    }
-    console.log(`Brush color set to: ${color}`);
-}
-
-/** Sets the current brush size. */
-export function setBrushSize(size) {
-    currentBrushSize = parseInt(size, 10);
-    if (ctx) {
-        ctx.lineWidth = currentBrushSize;
-    }
-    console.log(`Brush size set to: ${size}`);
-}
-
 // --- Data Handling ---
 
 /**
- * Sends drawing data to the server via socket.
- * @param {string} type - Type of drawing action ('draw', 'clear', 'start', 'stop').
- * @param {number} [x1] - Start X (for 'draw', 'start').
- * @param {number} [y1] - Start Y (for 'draw', 'start').
- * @param {number} [x2] - End X (for 'draw').
- * @param {number} [y2] - End Y (for 'draw').
+ * Sends a line segment drawing data to the server.
+ * @param {number} x1 - Start X coordinate.
+ * @param {number} y1 - Start Y coordinate.
+ * @param {number} x2 - End X coordinate.
+ * @param {number} y2 - End Y coordinate.
  */
-function sendDrawData(type, x1, y1, x2, y2) {
+function sendDrawData(x1, y1, x2, y2) {
+    const room = state.getRoom();
+    if (!room || !canvas) return; // Don't send if not in a room or canvas not ready
+
     const data = {
-        type: type,
+        // type: 'draw', // Type is implicit in DRAW_DATA event
         color: currentColor,
         size: currentBrushSize,
-        // Normalize coordinates to relative values (0 to 1) for different screen sizes
-        x1: x1 !== undefined ? x1 / canvas.width : undefined,
-        y1: y1 !== undefined ? y1 / canvas.height : undefined,
-        x2: x2 !== undefined ? x2 / canvas.width : undefined,
-        y2: y2 !== undefined ? y2 / canvas.height : undefined,
+        // Normalize coordinates
+        x1: x1 / canvas.width,
+        y1: y1 / canvas.height,
+        x2: x2 / canvas.width,
+        y2: y2 / canvas.height,
     };
-    // socket.emit('drawData', data); // TODO: Uncomment when socket is fully integrated
-    // console.log("Sending draw data:", data); // For debugging
+    socket.emit(SOCKET_EVENTS.DRAW_DATA, room.id, data);
+    // console.log("Sending draw data:", data); // Less verbose logging
 }
+
 
 /**
  * Handles incoming drawing data from the server.
@@ -221,28 +230,28 @@ export function handleIncomingDrawData(data) {
     const x2 = data.x2 !== undefined ? data.x2 * canvas.width : undefined;
     const y2 = data.y2 !== undefined ? data.y2 * canvas.height : undefined;
 
-    switch (data.type) {
-        case 'draw':
-            if (x1 !== undefined && y1 !== undefined && x2 !== undefined && y2 !== undefined) {
-                drawLine(x1, y1, x2, y2, data.color, data.size);
-            }
-            break;
-        case 'clear':
-            // Don't call clearCanvas() directly as it sends another event
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            console.log("Received clear canvas instruction.");
-            break;
-        // Handle 'start' and 'stop' if needed for smoother remote drawing (optional)
-        case 'start':
-             // Optional: Could draw a dot or prepare state
-             // drawLine(x1, y1, x1, y1, data.color, data.size);
-             break;
-        case 'stop':
-             // Optional: Finalize any drawing path state
-             break;
-        default:
-            console.warn("Unknown draw data type received:", data.type);
+    // Server now sends DRAWING_UPDATE for line segments
+    // and CLEAR_CANVAS_UPDATE for clearing.
+    // No need for switch based on data.type anymore if server sends distinct events.
+    // Assuming handleIncomingDrawData is called for DRAWING_UPDATE events.
+
+    if (x1 !== undefined && y1 !== undefined && x2 !== undefined && y2 !== undefined) {
+        drawLine(x1, y1, x2, y2, data.color, data.size);
+    } else {
+        console.warn("Received incomplete draw data:", data);
     }
+
+    // Note: Clearing the canvas is now handled by a separate listener in handlers.js
+    // which calls the exported clearCanvas function below (which only clears locally).
+}
+
+
+// Exported clearCanvas now only clears locally, event emission is handled elsewhere.
+/** Clears the entire canvas locally. */
+export function clearCanvas() {
+    if (!ctx || !canvas) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    console.log("Canvas cleared locally via instruction.");
 }
 
 // --- Helpers ---
