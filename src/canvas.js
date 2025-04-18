@@ -1,6 +1,5 @@
-import * as dom from './dom.js';
+// Removed dom and state imports
 import * as socket from './socket.js'; // To send drawing data
-import * as state from './state.js'; // To get room ID and drawing status
 import { SOCKET_EVENTS } from './constants.js'; // To use correct event names
 
 let canvas = null;
@@ -8,17 +7,23 @@ let ctx = null;
 let isDrawing = false;
 let lastX = 0;
 let lastY = 0;
-let currentBrushSize = 3;
-let currentColor = '#000000';
-// let canDraw = false; // Replaced by state.isCurrentUserDrawing() check or pointer-events style
+let currentBrushSize = 3; // Default, will be set by main.js
+let currentColor = '#000000'; // Default, will be set by main.js
+let currentRoomId = null; // Store room ID when game starts
 
-/** Initializes the canvas and sets up event listeners. */
-export function initCanvas() {
-    canvas = dom.drawingCanvas;
-    if (!canvas) {
-        console.error("Drawing canvas element not found!");
+/**
+ * Initializes the canvas and sets up event listeners.
+ * @param {HTMLCanvasElement} canvasElement - The canvas element passed from main.js.
+ * @param {string} roomId - The current room ID.
+ */
+export function initCanvas(canvasElement, roomId) {
+    if (!canvasElement) {
+        console.error("initCanvas called without a valid canvas element!");
         return;
     }
+    canvas = canvasElement;
+    currentRoomId = roomId; // Store room ID for sending data
+
     ctx = canvas.getContext('2d');
     if (!ctx) {
         console.error("Failed to get 2D context from canvas!");
@@ -28,7 +33,18 @@ export function initCanvas() {
     // Set initial canvas dimensions based on container size
     resizeCanvas();
 
-    // Add event listeners
+    // --- Remove previous listeners if any (safety measure) ---
+    canvas.removeEventListener('mousedown', startDrawing);
+    canvas.removeEventListener('mousemove', draw);
+    canvas.removeEventListener('mouseup', stopDrawing);
+    canvas.removeEventListener('mouseout', stopDrawing);
+    canvas.removeEventListener('touchstart', handleTouchStart);
+    canvas.removeEventListener('touchmove', handleTouchMove);
+    canvas.removeEventListener('touchend', stopDrawing);
+    canvas.removeEventListener('touchcancel', stopDrawing);
+    window.removeEventListener('resize', resizeCanvas); // Remove potential old listener
+
+    // --- Add event listeners ---
     canvas.addEventListener('mousedown', startDrawing);
     canvas.addEventListener('mousemove', draw);
     canvas.addEventListener('mouseup', stopDrawing);
@@ -40,30 +56,22 @@ export function initCanvas() {
     canvas.addEventListener('touchend', stopDrawing);
     canvas.addEventListener('touchcancel', stopDrawing);
 
-
     // Listen for window resize to adjust canvas
     window.addEventListener('resize', resizeCanvas);
 
-    // Set initial brush properties from DOM elements
-    currentBrushSize = parseInt(dom.brushSizeSlider.value, 10);
-    currentColor = dom.colorPicker.value;
+    // Initial brush properties are set via setCurrentColor/setBrushSize called from main.js
     if(ctx) {
         ctx.lineWidth = currentBrushSize;
         ctx.strokeStyle = currentColor;
     }
 
-    // Remove redundant listeners - these are now set in handlers.js/registerDOMListeners
-    // dom.colorPicker.addEventListener('input', (e) => setColor(e.target.value));
-    // dom.brushSizeSlider.addEventListener('input', (e) => setBrushSize(e.target.value));
-    // dom.clearCanvasBtn.addEventListener('click', clearCanvas); // This is handled by handleClearCanvasClick in handlers.js
-
     console.log("Canvas initialized.");
-    setDrawingEnabled(false); // Disabled by default, enabled/disabled via handlers.js -> handleNewTurn
+    setDrawingEnabled(false); // Disabled by default
 }
 
 /** Adjusts canvas size to fit its container. */
 function resizeCanvas() {
-    if (!canvas || !canvas.parentElement) return;
+    if (!canvas || !canvas.parentElement || !ctx) return;
     // Save current drawing state if needed (optional)
     // const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
@@ -77,69 +85,59 @@ function resizeCanvas() {
     // ctx.putImageData(imageData, 0, 0);
 
     // Re-apply drawing styles after resize (context might reset)
-    if (ctx) {
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-        ctx.lineWidth = currentBrushSize;
-        ctx.strokeStyle = currentColor;
-    }
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = currentBrushSize;
+    ctx.strokeStyle = currentColor;
+
     console.log(`Canvas resized to: ${canvas.width}x${canvas.height}`);
 }
 
 /**
- * Enables or disables drawing controls and canvas interaction.
- * Called by handlers based on game state (e.g., handleNewTurn).
+ * Enables or disables canvas interaction.
+ * Called by main.js based on game state.
  */
 export function setDrawingEnabled(enabled) {
-    // canDraw = enabled; // No longer needed, rely on pointerEvents
     if (!canvas) return;
     canvas.style.cursor = enabled ? 'crosshair' : 'not-allowed';
     // Prevent events entirely when not allowed to draw
     canvas.style.pointerEvents = enabled ? 'auto' : 'none';
-    // Disable/enable controls associated with drawing
-    dom.colorPicker.disabled = !enabled;
-    dom.brushSizeSlider.disabled = !enabled;
-    dom.clearCanvasBtn.disabled = !enabled;
-    console.log(`Drawing enabled: ${enabled}`);
+    console.log(`Canvas drawing interaction enabled: ${enabled}`);
+    // NOTE: Disabling/enabling controls (color picker, slider) is handled
+    //       by petite-vue bindings in HTML based on appState.isDrawing
 }
 
-/** Sets the current brush color (called by event listener in handlers.js). */
+/** Sets the current brush color (called by main.js). */
 export function setCurrentColor(color) {
     currentColor = color;
     if (ctx) {
         ctx.strokeStyle = currentColor;
     }
-    // console.log(`Brush color set to: ${color}`); // Less verbose logging
 }
 
-/** Sets the current brush size (called by event listener in handlers.js). */
+/** Sets the current brush size (called by main.js). */
 export function setBrushSize(size) {
     currentBrushSize = parseInt(size, 10);
     if (ctx) {
         ctx.lineWidth = currentBrushSize;
     }
-    // console.log(`Brush size set to: ${size}`); // Less verbose logging
 }
 
 
 function startDrawing(e) {
-    // No need for canDraw check if pointerEvents is 'none'
+    // pointerEvents style handles enabling/disabling
     isDrawing = true;
     [lastX, lastY] = getEventCoordinates(e);
-    // Optional: Draw a dot on click
-    // drawLine(lastX, lastY, lastX, lastY);
-    // sendDrawData('start', lastX, lastY); // Send start event
 }
 
 function draw(e) {
-    // No need for canDraw check if pointerEvents is 'none'
     if (!isDrawing) return;
     const [currentX, currentY] = getEventCoordinates(e);
 
     // Draw locally first
     drawLine(lastX, lastY, currentX, currentY);
     // Send data for broadcast
-    sendDrawData(lastX, lastY, currentX, currentY);
+    sendDrawData(lastX, lastY, currentX, currentY); // Pass roomId implicitly via module variable
 
     [lastX, lastY] = [currentX, currentY];
 }
@@ -147,23 +145,22 @@ function draw(e) {
 function stopDrawing() {
     if (!isDrawing) return;
     isDrawing = false;
-    // sendDrawData('stop'); // Send stop event
 }
 
 // --- Touch Event Handlers ---
 function handleTouchStart(e) {
-    // No need for canDraw check if pointerEvents is 'none'
     e.preventDefault(); // Prevent scrolling/default touch actions
-    const touch = e.touches[0];
-    startDrawing(touch);
+    if (e.touches.length > 0) {
+        startDrawing(e.touches[0]);
+    }
 }
 
 function handleTouchMove(e) {
-    // No need for canDraw check if pointerEvents is 'none'
     if (!isDrawing) return;
     e.preventDefault(); // Prevent scrolling/default touch actions
-    const touch = e.touches[0];
-    draw(touch);
+     if (e.touches.length > 0) {
+        draw(e.touches[0]);
+    }
 }
 
 
@@ -193,17 +190,16 @@ export function drawLine(x1, y1, x2, y2, color = currentColor, size = currentBru
 
 /**
  * Sends a line segment drawing data to the server.
+ * Uses the currentRoomId stored when initCanvas was called.
  * @param {number} x1 - Start X coordinate.
  * @param {number} y1 - Start Y coordinate.
  * @param {number} x2 - End X coordinate.
  * @param {number} y2 - End Y coordinate.
  */
 function sendDrawData(x1, y1, x2, y2) {
-    const room = state.getRoom();
-    if (!room || !canvas) return; // Don't send if not in a room or canvas not ready
+    if (!currentRoomId || !canvas) return; // Don't send if not in a room or canvas not ready
 
     const data = {
-        // type: 'draw', // Type is implicit in DRAW_DATA event
         color: currentColor,
         size: currentBrushSize,
         // Normalize coordinates
@@ -212,8 +208,7 @@ function sendDrawData(x1, y1, x2, y2) {
         x2: x2 / canvas.width,
         y2: y2 / canvas.height,
     };
-    socket.emit(SOCKET_EVENTS.DRAW_DATA, room.id, data);
-    // console.log("Sending draw data:", data); // Less verbose logging
+    socket.emit(SOCKET_EVENTS.DRAW_DATA, currentRoomId, data);
 }
 
 
@@ -230,19 +225,12 @@ export function handleIncomingDrawData(data) {
     const x2 = data.x2 !== undefined ? data.x2 * canvas.width : undefined;
     const y2 = data.y2 !== undefined ? data.y2 * canvas.height : undefined;
 
-    // Server now sends DRAWING_UPDATE for line segments
-    // and CLEAR_CANVAS_UPDATE for clearing.
-    // No need for switch based on data.type anymore if server sends distinct events.
-    // Assuming handleIncomingDrawData is called for DRAWING_UPDATE events.
-
+    // Server sends DRAWING_UPDATE for line segments
     if (x1 !== undefined && y1 !== undefined && x2 !== undefined && y2 !== undefined) {
         drawLine(x1, y1, x2, y2, data.color, data.size);
     } else {
         console.warn("Received incomplete draw data:", data);
     }
-
-    // Note: Clearing the canvas is now handled by a separate listener in handlers.js
-    // which calls the exported clearCanvas function below (which only clears locally).
 }
 
 
@@ -262,19 +250,15 @@ export function clearCanvas() {
  * @returns {Array<number>} An array containing [x, y] coordinates.
  */
 function getEventCoordinates(e) {
+    if (!canvas) return [0, 0]; // Should not happen if initialized
     const rect = canvas.getBoundingClientRect();
     let clientX, clientY;
 
-    if (e.clientX !== undefined) { // MouseEvent
+    if (e.clientX !== undefined) { // MouseEvent or Touch object
         clientX = e.clientX;
         clientY = e.clientY;
-    } else if (e.touches && e.touches.length > 0) { // TouchEvent (use first touch)
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-    } else if (e.changedTouches && e.changedTouches.length > 0) { // TouchEvent (touchend)
-        clientX = e.changedTouches[0].clientX;
-        clientY = e.changedTouches[0].clientY;
-    } else { // Fallback or unexpected event type
+    } else { // Fallback for unexpected event types
+        console.warn("Could not get coordinates from event:", e);
         return [lastX, lastY]; // Return last known coordinates
     }
 

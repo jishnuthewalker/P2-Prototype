@@ -307,7 +307,11 @@ const appState = {
                  // Ensure canvas element is passed if initCanvas needs it
                  const canvasEl = document.getElementById('drawing-canvas'); // Get canvas element when needed
                  if (canvasEl) {
-                    canvas.initCanvas(canvasEl);
+                    // Pass canvas element and room ID to initCanvas
+                    canvas.initCanvas(canvasEl, this.room.id);
+                    // Set initial canvas state from appState
+                    canvas.setCurrentColor(this.currentColor);
+                    canvas.setBrushSize(this.brushSize);
                     canvas.clearCanvas();
                  } else {
                     console.error("Drawing canvas element not found for init!");
@@ -387,20 +391,10 @@ const appState = {
         });
     },
 
-    // --- Initial Mount Logic ---
-    mount() {
-        console.log("Mounting petite-vue app...");
-        // Initial setup: Set canvas defaults
-        canvas.setCurrentColor(this.currentColor);
-        canvas.setBrushSize(this.brushSize);
-        // No need to register DOM listeners here, petite-vue handles it via directives
-        // No need to explicitly show initial view, v-if handles it
-        console.log("App mounted. Waiting for user interaction.");
-    }
+    // Removed custom mount() method
 };
 
-// Create and mount the app
-createApp(appState).mount('#app-container'); // Mount to a container element
+// Create and mount the app AFTER appState is fully defined
+createApp(appState).mount('#app-container');
 
-// Call mount function after app is created
-appState.mount();
+console.log("petite-vue mounted to #app-container.");
