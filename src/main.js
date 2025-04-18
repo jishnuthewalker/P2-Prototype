@@ -2,7 +2,8 @@ import { createApp } from 'https://unpkg.com/petite-vue?module';
 import * as socket from './socket.js';
 import * as canvas from './canvas.js';
 import * as constants from './constants.js';
-// No longer needed: import * as uiInteractions from './uiInteractions.js';
+import { populateHintModal } from './ui.js';
+import { makeDraggable } from './uiInteractions.js'; // Import makeDraggable
 
 const { VIEWS, SOCKET_EVENTS, DEFAULT_SCORE_GOAL } = constants;
 
@@ -15,6 +16,7 @@ const appState = {
     player: null, // { id, name, score }
     room: null,   // { id, players: [], hostId, settings: { scoreGoal } }
     messages: [], // { sender, message, type }
+    roomTeamScore: 0, // Added to store team score directly from server
 
     // Game State Specific
     isDrawing: false,
@@ -29,15 +31,14 @@ const appState = {
     guessInput: '',
 
     // UI Control State
-    isScoreboardVisible: false,
-    isDrawingVisible: true,
-    isChatVisible: true,
+    // Removed isScoreboardVisible, isDrawingVisible, isChatVisible as sections are no longer collapsible
     setupError: null,     // { message: string } | null
     notification: null, // { message: string, type: string, timeoutId: number | null } | null
 
     // Canvas Related State (mirrors defaults, controlled via methods)
-    currentColor: '#000000',
+    // currentColor: '#000000', // Removed - color is now theme-dependent
     brushSize: 3,
+    isDarkMode: false, // Added for dark mode toggle
 
     // --- Computed Properties (Getters) ---
 
@@ -51,19 +52,33 @@ const appState = {
         return this.isHost && this.room?.players?.length >= 2;
     },
 
-    /** Returns the player list sorted by score (descending). */
+    /** Returns the player list sorted alphabetically by name. */
     get playersSorted() {
-        return this.room?.players?.slice().sort((a, b) => b.score - a.score) || [];
+        // Sort alphabetically, case-insensitive
+        return this.room?.players?.slice().sort((a, b) => {
+            const nameA = a.name.toUpperCase();
+            const nameB = b.name.toUpperCase();
+            if (nameA < nameB) return -1;
+            if (nameA > nameB) return 1;
+            return 0;
+        }) || [];
     },
 
-    /** Calculates the current total team score. */
+    /** Returns the current team score received from the server. */
     get teamScore() {
-        return this.room?.players?.reduce((sum, p) => sum + (p.score || 0), 0) || 0;
+        return this.roomTeamScore || 0;
     },
 
     /** Gets the name of the current drawer, if any. */
     get currentDrawerName() {
         return this.room?.players?.find(p => p.id === this.room?.gameState?.currentDrawerId)?.name || '...';
+    },
+
+    /** Calculates the team progress percentage for the progress bar. */
+    get teamProgressPercentage() {
+        const goal = this.room?.settings?.scoreGoal || this.lobbyScoreGoalInput || 1; // Avoid division by zero
+        const progress = (this.teamScore / goal) * 100;
+        return Math.min(100, Math.max(0, progress)); // Clamp between 0 and 100
     },
 
     // --- Methods ---
@@ -180,23 +195,58 @@ const appState = {
         }
     },
 
-    // UI Toggles
-    toggleScoreboard() {
-        this.isScoreboardVisible = !this.isScoreboardVisible;
-    },
-    toggleSection(sectionId) {
-         if (sectionId === 'drawing-content') this.isDrawingVisible = !this.isDrawingVisible;
-         if (sectionId === 'chat-content') this.isChatVisible = !this.isChatVisible;
-    },
+    // UI Toggles (Removed toggleScoreboard and toggleSection)
 
     // Canvas Event Handlers (Called from HTML @input)
-    handleColorChange(event) {
-        this.currentColor = event.target.value;
-        canvas.setCurrentColor(this.currentColor);
-    },
+    // handleColorChange(event) { // Removed
+    //     this.currentColor = event.target.value;
+    //     canvas.setCurrentColor(this.currentColor);
+    // },
     handleBrushSizeChange(event) {
         this.brushSize = event.target.value;
         canvas.setBrushSize(this.brushSize);
+    },
+
+    // Dark Mode Logic
+    initDarkMode() {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const storedPreference = localStorage.getItem('darkMode');
+        if (storedPreference === 'true') {
+            this.isDarkMode = true;
+        } else if (storedPreference === 'false') {
+            this.isDarkMode = false;
+        } else {
+            // If no preference stored, use system preference
+            this.isDarkMode = prefersDark;
+        }
+        this.applyDarkMode();
+    },
+    applyDarkMode() {
+        if (this.isDarkMode) {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('darkMode', 'true');
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('darkMode', 'false');
+        }
+        // Set canvas drawing color based on theme
+        const drawingColor = this.isDarkMode ? '#FFFFFF' : '#000000';
+        canvas.setCurrentColor(drawingColor);
+        // Note: Canvas background is handled by Tailwind classes on the canvas element itself
+    },
+    toggleDarkMode() {
+        this.isDarkMode = !this.isDarkMode;
+        this.applyDarkMode();
+    },
+
+    // Hint Modal Logic
+    toggleHintModal() {
+        const modal = document.getElementById('hint-modal');
+        if (modal) {
+            modal.classList.toggle('hidden'); // Toggle Tailwind's hidden class
+            // Alternatively, use a custom class like 'show-modal' if defined in CSS
+            // modal.classList.toggle('show-modal');
+        }
     },
 
     // --- Socket Connection and Emission Logic ---
@@ -339,9 +389,7 @@ const appState = {
                  this.currentView = VIEWS.GAME_AREA;
                  // Reset game-specific UI state
                  this.messages = [];
-                 this.isScoreboardVisible = false;
-                 this.isDrawingVisible = true;
-                 this.isChatVisible = true;
+                 // No need to reset visibility flags anymore
 
                  // Wait for DOM update before initializing canvas
                  this.$nextTick(() => {
@@ -349,7 +397,9 @@ const appState = {
                     const canvasEl = document.getElementById('drawing-canvas');
                     if (canvasEl) {
                         canvas.initCanvas(canvasEl, this.room.id);
-                        canvas.setCurrentColor(this.currentColor);
+                        // Set initial canvas color based on current theme
+                        const initialDrawingColor = this.isDarkMode ? '#FFFFFF' : '#000000';
+                        canvas.setCurrentColor(initialDrawingColor);
                         canvas.setBrushSize(this.brushSize);
                         canvas.clearCanvas();
                     } else {
@@ -394,10 +444,12 @@ const appState = {
              console.log("Socket: SCORE_UPDATE received raw data:", JSON.stringify(data));
              console.log("Socket: SCORE_UPDATE processed", data);
              if (this.room) {
-                 this.room.players = data.players;
-                 // Update self from list
-                 const updatedSelf = data.players.find(p => p.id === this.player?.id);
-                 if (updatedSelf) this.player = { ...updatedSelf };
+                 // Update the team score directly from the server event data
+                 this.roomTeamScore = data.teamScore;
+                 // this.room.players = data.players; // REMOVED - Player list no longer sent here
+                 // // Update self from list // REMOVED - No longer needed here
+                 // const updatedSelf = data.players.find(p => p.id === this.player?.id);
+                 // if (updatedSelf) this.player = { ...updatedSelf };
              }
         });
         socket.on(SOCKET_EVENTS.TIMER_UPDATE, (data) => {
@@ -405,6 +457,8 @@ const appState = {
         });
         socket.on(SOCKET_EVENTS.GAME_OVER, (data) => {
              console.log("Socket: GAME_OVER", data);
+             // Update final team score
+             this.roomTeamScore = data.finalTeamScore;
              this.isDrawing = false;
              this.currentWord = null;
              canvas.setDrawingEnabled(false);
@@ -437,8 +491,24 @@ const appState = {
 
 // --- Initialize App ---
 console.log("Initializing petite-vue app...");
-createApp(appState).mount('#app-container');
+const app = createApp(appState);
+app.mount('#app-container');
 console.log("petite-vue mounted to #app-container.");
+
+// Initialize dark mode based on preference/storage
+appState.initDarkMode();
+
+// Populate the hint modal content once the app is mounted
+populateHintModal('hint-modal-content');
+
+// Make the hint modal draggable after app mount
+const hintModalElement = document.getElementById('hint-modal-draggable');
+const hintModalHeader = document.getElementById('hint-modal-header');
+if (hintModalElement && hintModalHeader) {
+    makeDraggable(hintModalElement, hintModalHeader);
+} else {
+    console.error("Could not find hint modal elements to make draggable.");
+}
 
 // Initial canvas setup (optional, if needed before game starts)
 // canvas.setCurrentColor(appState.currentColor);

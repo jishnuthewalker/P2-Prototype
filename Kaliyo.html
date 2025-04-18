@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kannada Letter Pictionary (petite-vue)</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Configure Tailwind CSS for class-based dark mode
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            // Add any custom theme extensions if needed later
+          }
+        }
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -29,43 +40,56 @@
             text-align: center;
         }
         .message-box.show { opacity: 1; }
-        .message-info { background-color: #3b82f6; } /* blue-500 */
-        .message-success { background-color: #10b981; } /* green-500 */
-        .message-error { background-color: #ef4444; } /* red-500 */
+        /* Light mode notification colors */
+        .message-info { @apply bg-blue-500; }
+        .message-success { @apply bg-green-500; }
+        .message-error { @apply bg-red-500; }
+        /* Dark mode notification colors */
+        .dark .message-info { @apply bg-blue-600; } /* Slightly darker blue */
+        .dark .message-success { @apply bg-green-600; } /* Slightly darker green */
+        .dark .message-error { @apply bg-red-600; } /* Slightly darker red */
     </style>
 </head>
-<body class="bg-gray-100 flex flex-col h-full">
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col h-full transition-colors duration-200">
 
     <!-- Main App Container for petite-vue -->
     <div id="app-container" v-scope v-cloak class="flex flex-col h-full">
 
         <!-- Initial Setup View -->
-        <div v-if="currentView === 'initial-setup'" class="w-full max-w-md mx-auto bg-white p-6 rounded-2xl shadow-lg text-center my-6 flex-shrink-0">
-            <h1 class="text-3xl font-extrabold mb-4 text-green-600">ಕನ್ನಡ ಅಕ್ಷರ ಚಿತ್ರ</h1>
-            <p class="mb-6 text-gray-600 font-semibold">Enter your name and create or join a room!</p>
+        <div v-if="currentView === 'initial-setup'" class="relative w-full max-w-md mx-auto bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg text-center my-6 flex-shrink-0">
+             <!-- Dark Mode Toggle Button -->
+             <button @click="toggleDarkMode" class="absolute top-4 right-4 text-xs p-1 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+                 {{ isDarkMode ? 'Light' : 'Dark' }} Mode
+             </button>
+            <h1 class="text-3xl font-extrabold mb-4 text-green-600 dark:text-green-400">ಕನ್ನಡ ಅಕ್ಷರ ಚಿತ್ರ</h1>
+            <p class="mb-6 text-gray-600 dark:text-gray-300 font-semibold">Enter your name and create or join a room!</p>
             <div class="mb-4">
-                <label for="player-name-input-pv" class="block text-sm font-bold text-gray-700 mb-2 text-left">Your Name:</label>
-                <input type="text" id="player-name-input-pv" v-model="playerNameInput" class="w-full" placeholder="Enter your name">
+                <label for="player-name-input-pv" class="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2 text-left">Your Name:</label>
+                <input type="text" id="player-name-input-pv" v-model="playerNameInput" class="w-full dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="Enter your name">
             </div>
             <button @click="createRoom" class="w-full btn btn-secondary mb-3">Create New Room</button>
-            <hr class="my-4 border-gray-200">
+            <hr class="my-4 border-gray-200 dark:border-gray-600">
             <div class="mb-4">
-                <label for="room-id-input-pv" class="block text-sm font-bold text-gray-700 mb-2 text-left">Room Code:</label>
-                <input type="text" id="room-id-input-pv" v-model="roomIdInput" class="w-full" placeholder="Enter 4-digit code" maxlength="4">
+                <label for="room-id-input-pv" class="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2 text-left">Room Code:</label>
+                <input type="text" id="room-id-input-pv" v-model="roomIdInput" class="w-full dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="Enter 4-digit code" maxlength="4">
             </div>
             <button @click="joinRoom" class="w-full btn btn-primary">Join Room</button>
-            <p v-if="setupError" class="mt-3 text-red-500 text-sm font-semibold">{{ setupError.message }}</p>
+            <p v-if="setupError" class="mt-3 text-red-500 dark:text-red-400 text-sm font-semibold">{{ setupError.message }}</p>
         </div>
 
         <!-- Game Lobby View -->
-        <div v-if="currentView === 'game-lobby'" class="w-full max-w-md mx-auto bg-white p-6 rounded-2xl shadow-lg text-center my-6 flex-shrink-0">
-            <h2 class="text-2xl font-bold mb-3 text-gray-700">Room Lobby</h2>
-            <p class="mb-2 text-gray-600">Room Code: <strong class="text-blue-600 text-lg font-mono">{{ room?.id || '----' }}</strong></p>
-            <p class="mb-4 text-sm text-gray-500">Share this code with friends!</p>
+        <div v-if="currentView === 'game-lobby'" class="relative w-full max-w-md mx-auto bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg text-center my-6 flex-shrink-0">
+            <!-- Dark Mode Toggle Button -->
+             <button @click="toggleDarkMode" class="absolute top-4 right-4 text-xs p-1 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+                 {{ isDarkMode ? 'Light' : 'Dark' }} Mode
+             </button>
+            <h2 class="text-2xl font-bold mb-3 text-gray-700 dark:text-gray-200">Room Lobby</h2>
+            <p class="mb-2 text-gray-600 dark:text-gray-300">Room Code: <strong class="text-blue-600 dark:text-blue-400 text-lg font-mono">{{ room?.id || '----' }}</strong></p>
+            <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">Share this code with friends!</p>
             <div class="mb-4 text-left">
-                <h3 class="font-bold text-gray-800 mb-2">Players ({{ room?.players?.length || 0 }}/8):</h3>
-                <ul v-if="room?.players" class="list-none space-y-1 text-gray-700 font-semibold">
-                     <li v-for="p in room.players" :key="p.id" :class="{ 'font-bold text-blue-600': p.id === room.hostId, 'italic': p.id === player?.id }">
+                <h3 class="font-bold text-gray-800 dark:text-gray-100 mb-2">Players ({{ room?.players?.length || 0 }}/8):</h3>
+                <ul v-if="room?.players" class="list-none space-y-1 text-gray-700 dark:text-gray-300 font-semibold">
+                     <li v-for="p in room.players" :key="p.id" :class="{ 'font-bold text-blue-600 dark:text-blue-400': p.id === room.hostId, 'italic': p.id === player?.id }">
                         {{ p.name }}
                         <span v-if="p.id === room.hostId">(Host)</span>
                         <span v-if="p.id === player?.id">(You)</span>
@@ -73,134 +97,160 @@
                 </ul>
             </div>
             <div class="mb-4">
-                <label for="lobby-score-goal-pv" class="block text-sm font-bold text-gray-700 mb-2 text-left">Team Score Goal:</label>
-                <input type="number" id="lobby-score-goal-pv" v-model.number="lobbyScoreGoalInput" min="10" class="w-full" :disabled="!isHost">
+                <label for="lobby-score-goal-pv" class="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2 text-left">Team Score Goal:</label>
+                <input type="number" id="lobby-score-goal-pv" v-model.number="lobbyScoreGoalInput" min="10" class="w-full dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" :disabled="!isHost">
             </div>
             <button @click="startGame" class="w-full btn btn-primary" :disabled="!canStartGame">
                 {{ isHost ? 'Start Game' : 'Waiting for Host...' }}
             </button>
-            <p class="mt-3 text-xs text-gray-500">Waiting for host ({{ room?.players?.find(p => p.id === room?.hostId)?.name || 'Host' }}) to start...</p>
-            <button @click="leaveRoom" class="mt-4 text-sm text-red-600 hover:underline">Leave Room</button>
+            <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">Waiting for host ({{ room?.players?.find(p => p.id === room?.hostId)?.name || 'Host' }}) to start...</p>
+            <button @click="leaveRoom" class="mt-4 text-sm text-red-600 dark:text-red-400 hover:underline">Leave Room</button>
         </div>
 
         <!-- Main Game Area View -->
-        <div v-if="currentView === 'game-area'" class="w-full h-full bg-[#f7faff] flex-grow flex flex-col overflow-hidden min-h-0">
+        <!-- Main Game Area View (NEW LAYOUT) -->
+        <div v-if="currentView === 'game-area'" class="flex flex-col h-full flex-grow overflow-hidden">
 
-            <div class="top-bar flex justify-between items-center flex-shrink-0">
-                 <div class="text-sm font-semibold">
-                     Drawing: <span class="active-player-indicator">{{ room?.players?.find(p => p.id === room?.gameState?.currentDrawerId)?.name || '...' }}</span>
-                 </div>
-                 <div class="text-sm font-semibold">
-                     Time: <span>{{ timeLeft }}</span>s
-                 </div>
-                 <button @click="toggleScoreboard" :aria-expanded="isScoreboardVisible">
-                     Scores {{ isScoreboardVisible ? '▲' : '▼' }}
-                 </button>
+            <!-- Header -->
+            <div class="game-header p-3 flex justify-between items-center flex-shrink-0 border-b border-gray-200 dark:border-gray-700"> <!-- Added border -->
+                <button @click="leaveRoom" class="text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 text-sm font-semibold flex items-center">
+                    <!-- Simple Back Arrow SVG -->
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Leave Game
+                </button>
+                <h1 class="text-lg font-bold text-gray-800 dark:text-gray-100">Kannada Letter Pictionary</h1>
+                <div class="flex items-center gap-4"> <!-- Group time and theme toggle -->
+                    <div class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Time: <span class="font-mono">{{ timeLeft }}s</span>
+                    </div>
+                    <!-- Dark Mode Toggle Button -->
+                    <button @click="toggleDarkMode" class="text-xs p-1 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
+                        {{ isDarkMode ? 'Light' : 'Dark' }} Mode
+                    </button>
+                </div>
             </div>
 
-            <div class="flex-grow overflow-y-auto pb-4 min-h-0">
+            <!-- Main Content Flex Container -->
+            <div class="flex flex-grow overflow-hidden">
 
-                <!-- Scoreboard Section (Collapsible) -->
-                <div v-show="isScoreboardVisible" class="section-container collapsible-content">
-                     <div class="section-header">
-                        <h2 class="section-title">Scores & Goal</h2>
-                     </div>
-                     <div class="flex flex-col lg:flex-row flex-wrap justify-around items-start gap-4">
-                        <div class="w-full lg:flex-1">
-                            <h3 class="text-sm font-bold text-gray-600 mb-2">Player Scores:</h3>
-                            <div class="space-y-1">
-                                <div v-for="p in playersSorted" :key="p.id" class="player-score-item text-sm">
-                                    <span class="font-semibold">{{ p.name }}:</span>
-                                    <span class="text-green-700 font-bold">{{ p.score }}</span>
-                                </div>
+                <!-- Left Sidebar -->
+                <div class="sidebar w-1/4 lg:w-1/5 flex flex-col p-4 flex-shrink-0 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"> <!-- Added bg and border -->
+                    <h2 class="text-md font-bold text-gray-700 dark:text-gray-200 mb-3">Players</h2>
+                    <div class="flex-grow mb-4 min-h-0 overflow-y-auto"> <!-- Enabled scroll -->
+                        <!-- Player List -->
+                        <div v-if="room?.players" class="space-y-1">
+                             <div v-for="p in playersSorted" :key="p.id"
+                                 :class="['player-item text-sm p-1 rounded',
+                                          { 'font-bold text-blue-600 dark:text-blue-400': p.id === room.hostId },
+                                          { 'italic bg-blue-50 dark:bg-blue-900': p.id === player?.id },
+                                          { 'bg-yellow-100 dark:bg-yellow-700': p.id === room?.gameState?.currentDrawerId }
+                                         ]">
+                                <span>{{ p.name }}</span>
+                                <span v-if="p.id === room?.gameState?.currentDrawerId" class="ml-1 text-xs">(✏️)</span> <!-- Drawing indicator -->
                             </div>
                         </div>
-                        <div class="w-full lg:w-auto bg-sky-100 p-4 rounded-xl text-center mt-2 lg:mt-0 border border-sky-200">
-                            <p class="text-sm font-bold text-sky-700">Team Goal</p>
-                            <p class="text-2xl font-extrabold text-sky-800 mt-1">
-                                <span>{{ teamScore }}</span> / <span>{{ room?.settings?.scoreGoal || lobbyScoreGoalInput }}</span>
-                            </p>
-                        </div>
                     </div>
+                    <!-- Progress Bar removed from here -->
                 </div>
 
-                <!-- Drawing Section (Collapsible) -->
-                <div class="section-container">
-                    <div class="section-header">
-                        <h2 class="section-title">Drawing Area</h2>
-                        <button @click="toggleSection('drawing-content')" class="collapse-button" :aria-expanded="isDrawingVisible">
-                            {{ isDrawingVisible ? '▲' : '▼' }}
-                        </button>
-                    </div>
-                    <div v-show="isDrawingVisible" class="collapsible-content w-full flex flex-col items-center">
-                        <div class="mb-3 text-center h-auto flex flex-col justify-center items-center p-3 rounded-xl bg-sky-50 w-full border border-sky-100">
-                            <p class="text-sm font-bold text-sky-800">
-                                {{ isDrawing ? "It's your turn to draw!" : `Waiting for ${room?.players?.find(p => p.id === room?.gameState?.currentDrawerId)?.name || '...'} to draw...` }}
-                            </p>
-                            <div v-if="isDrawing && currentWord" class="mt-1 text-center">
-                                <span class="text-xs font-semibold text-gray-600">Draw this letter:</span><br/>
-                                <span class="text-2xl font-bold text-blue-600 mr-1">{{ currentWord?.script }}</span>
-                                <span class="text-lg font-semibold text-gray-700">({{ currentWord?.latin }})</span>
-                            </div>
-                            <!-- Removed show letter button for simplicity, word shown directly -->
-                        </div>
-                        <div class="w-full mb-4 relative">
-                            <!-- Canvas element itself - petite-vue doesn't manage canvas drawing -->
-                            <canvas id="drawing-canvas"></canvas>
-                        </div>
-                        <div v-if="isDrawing" class="flex flex-wrap justify-center items-center gap-4">
-                            <label for="color-picker-pv" class="text-sm font-bold text-gray-600">Color:</label>
-                            <input type="color" id="color-picker-pv" :value="currentColor" @input="handleColorChange" class="h-8 w-8 border-2 border-gray-200 rounded-lg cursor-pointer p-0.5">
-                            <label for="brush-size-pv" class="text-sm font-bold text-gray-600">Size:</label>
-                            <input type="range" id="brush-size-pv" min="1" max="20" :value="brushSize" @input="handleBrushSizeChange" class="cursor-pointer w-24 h-2 bg-gray-200 rounded-lg appearance-none accent-green-500">
-                            <button @click="clearCanvasClick" class="btn btn-danger text-xs">Clear</button>
-                        </div>
-                    </div>
-                </div>
+                <!-- Right Main Content Area -->
+                <div class="main-content flex-grow flex flex-col p-4 bg-white dark:bg-gray-800"> <!-- Corrected dark background -->
 
-                <!-- Guessing Section -->
-                <div class="section-container">
-                     <label for="guess-input-pv" class="block text-sm font-bold text-gray-700 mb-2">Your Guess:</label>
-                     <div class="guess-input-container flex">
-                        <input type="text" id="guess-input-pv" v-model="guessInput" @keypress.enter="sendGuess" :disabled="isDrawing" placeholder="Type Kannada or Latin..." class="flex-grow">
-                        <button @click="sendGuess" class="btn btn-primary rounded-l-none" :disabled="isDrawing">Send</button>
+                    <!-- Drawing Prompt -->
+                    <div class="mb-3 text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 flex-shrink-0">
+                         <p class="text-sm font-bold text-blue-800 dark:text-blue-200">
+                            {{ isDrawing ? "It's your turn to draw!" : `Waiting for ${room?.players?.find(p => p.id === room?.gameState?.currentDrawerId)?.name || '...'} to draw...` }}
+                        </p>
+                        <div v-if="isDrawing && currentWord" class="mt-1 text-center">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400">Draw this letter:</span><br/>
+                            <span class="text-3xl font-bold text-blue-600 dark:text-blue-300 mr-1">{{ currentWord?.script }}</span>
+                            <span class="text-xl font-semibold text-gray-700 dark:text-gray-300">({{ currentWord?.latin }})</span>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Chat Section (Collapsible) -->
-                <div class="section-container flex flex-col min-h-0">
-                    <div class="section-header">
-                        <h2 class="section-title">Chat</h2>
-                         <button @click="toggleSection('chat-content')" class="collapse-button" :aria-expanded="isChatVisible">
-                             {{ isChatVisible ? '▲' : '▼' }}
-                         </button>
+                    <!-- Team Progress Bar (Moved Here) -->
+                    <div class="mb-4 flex-shrink-0">
+                        <h3 class="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-1 text-center">Team Progress</h3>
+                        <div class="progress-bar-bg h-3 w-full dark:bg-gray-700"> <!-- Dark bg for progress bar -->
+                            <div class="progress-bar-inner h-full" :style="{ width: teamProgressPercentage + '%' }"></div> <!-- Inner color defined in style.css -->
+                        </div>
+                        <p class="text-xs text-center text-gray-500 dark:text-gray-400 mt-1">
+                            {{ teamScore }} / {{ room?.settings?.scoreGoal || lobbyScoreGoalInput }}
+                        </p>
                     </div>
-                    <div v-show="isChatVisible" class="collapsible-content flex flex-col flex-grow min-h-0">
-                        <div class="p-2 overflow-y-auto flex-grow max-h-48 border border-gray-200 rounded-xl mb-2">
-                             <div v-for="(msg, index) in messages" :key="index" :class="['chat-message mb-1 px-2 py-1 rounded text-sm', msg.type === 'system' ? 'text-gray-600 italic' : (msg.type === 'correct-guess' ? 'text-green-700 font-semibold bg-green-100' : (msg.type === 'error' ? 'text-red-700 font-semibold bg-red-100' : 'bg-gray-100'))]">
-                                <strong v-if="msg.sender !== 'System'">{{ msg.sender }}:</strong>
+
+                    <!-- Canvas Area -->
+                    <div class="canvas-container w-full mb-4 relative flex-shrink-0 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"> <!-- Added border and rounding -->
+                        <canvas id="drawing-canvas" class="bg-white dark:bg-gray-900"></canvas> <!-- Canvas background -->
+                    </div>
+
+                    <!-- Drawing Tools (Only for Drawer) -->
+                    <div v-if="isDrawing" class="flex flex-wrap justify-center items-center gap-4 mb-4 flex-shrink-0 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <!-- Color Picker Removed -->
+                        <label for="brush-size-pv" class="text-sm font-bold text-gray-600 dark:text-gray-300">Size:</label>
+                        <input type="range" id="brush-size-pv" min="1" max="20" :value="brushSize" @input="handleBrushSizeChange" class="cursor-pointer w-24 h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none accent-blue-500 dark:accent-blue-400">
+                        <button @click="clearCanvasClick" class="btn btn-danger text-xs">Clear</button>
+                    </div>
+
+                    <!-- Guessing Input (Not for Drawer) -->
+                     <div v-if="!isDrawing" class="mb-4 flex-shrink-0">
+                         <label for="guess-input-pv" class="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-1">Your Guess:</label>
+                         <div class="flex">
+                            <input type="text" id="guess-input-pv" v-model="guessInput" @keypress.enter="sendGuess" :disabled="isDrawing" placeholder="Type Kannada or Latin..." class="flex-grow dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
+                            <button @click="sendGuess" class="btn btn-primary rounded-l-none" :disabled="isDrawing">Send</button>
+                            <button @click="toggleHintModal" class="btn btn-secondary ml-2">Hint</button> <!-- Added Hint Button -->
+                        </div>
+                    </div>
+
+                    <!-- Chat Area -->
+                    <div class="flex flex-col flex-grow min-h-0">
+                        <h3 class="text-sm font-bold text-gray-700 dark:text-gray-200 mb-1 flex-shrink-0">Chat</h3>
+                        <div class="chat-messages p-2 flex-grow rounded-lg mb-2 overflow-y-auto bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600"> <!-- Added bg and border -->
+                             <div v-for="(msg, index) in messages" :key="index"
+                                  :class="['chat-message mb-1 px-2 py-1 rounded text-sm',
+                                           msg.type === 'system' ? 'text-gray-600 dark:text-gray-400 italic' :
+                                           (msg.type === 'correct-guess' ? 'text-green-700 dark:text-green-300 font-semibold bg-green-100 dark:bg-green-800' :
+                                           (msg.type === 'error' ? 'text-red-700 dark:text-red-300 font-semibold bg-red-100 dark:bg-red-800' :
+                                           'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100'))]">
+                                <strong v-if="msg.sender !== 'System'" class="dark:text-gray-200">{{ msg.sender }}:</strong>
                                 <em v-if="msg.type === 'system'">{{ msg.message }}</em>
                                 <span v-else>{{ msg.message }}</span>
                             </div>
                         </div>
-                        <div class="flex">
-                            <input type="text" id="chat-input-pv" v-model="chatInput" @keypress.enter="sendMessage" class="flex-grow border border-gray-300 rounded-l-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="Type message...">
-                            <!-- Removed dedicated send button, using Enter key -->
+                        <div class="flex flex-shrink-0">
+                            <input type="text" id="chat-input-pv" v-model="chatInput" @keypress.enter="sendMessage" class="flex-grow border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 dark:placeholder-gray-400 dark:text-white" placeholder="Type message...">
                         </div>
                     </div>
-                </div>
 
-            </div>
+                </div> <!-- End Right Main Content -->
 
-            <div class="mt-auto p-3 flex-shrink-0">
-                <button @click="leaveRoom" class="btn btn-gray w-full">End Game / Leave</button>
-            </div>
+            </div> <!-- End Main Content Flex Container -->
 
-        </div>
+                <!-- Hint Panel Removed -->
+        </div> <!-- End Game Area View -->
 
         <!-- Notification Area -->
         <div v-if="notification" :class="['message-box', 'message-' + notification.type, 'show']">
             {{ notification.message }}
+        </div>
+
+        <!-- Kannada Alphabet Hint Modal -->
+        <!-- Removed flex items-center justify-center to allow absolute positioning -->
+        <div id="hint-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-opacity-75 overflow-y-auto h-full w-full hidden z-50">
+            <!-- Added position:absolute, initial top/left for centering (can be adjusted), and ID -->
+            <div id="hint-modal-draggable" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800">
+                <!-- Added ID to header for drag handle -->
+                <div id="hint-modal-header" class="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-600">
+                    <p class="text-xl font-bold text-gray-800 dark:text-gray-100">Kannada Alphabet Hint</p>
+                    <button @click="toggleHintModal" class="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl font-bold">&times;</button>
+                </div>
+                <div id="hint-modal-content" class="mt-3 max-h-80 overflow-y-auto">
+                    <!-- Alphabet grid will be populated here by JS -->
+                    <p class="text-center text-gray-500 dark:text-gray-400">Loading hints...</p>
+                </div>
+            </div>
         </div>
 
     </div> <!-- End #app-container -->

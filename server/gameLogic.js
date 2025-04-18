@@ -1,22 +1,22 @@
 const KANNADA_LETTERS = [
-    // Simple vowels (Swara)
-    { script: "ಅ", latin: "a" }, { script: "ಆ", latin: "aa" }, { script: "ಇ", latin: "i" },
-    { script: "ಈ", latin: "ee" }, { script: "ಉ", latin: "u" }, { script: "ಊ", latin: "oo" },
-    { script: "ಋ", latin: "ru" }, { script: "ಎ", latin: "e" }, { script: "ಏ", latin: "ē" },
-    { script: "ಐ", latin: "ai" }, { script: "ಒ", latin: "o" }, { script: "ಓ", latin: "ō" },
-    { script: "ಔ", latin: "au" },
-    // Consonants (Vyanjana) - Example subset
-    { script: "ಕ", latin: "ka" }, { script: "ಖ", latin: "kha" }, { script: "ಗ", latin: "ga" },
-    { script: "ಘ", latin: "gha" }, { script: "ಚ", latin: "cha" }, { script: "ಛ", latin: "chha" },
-    { script: "ಜ", latin: "ja" }, { script: "ಝ", latin: "jha" }, { script: "ಟ", latin: "ṭa" },
-    { script: "ಠ", latin: "ṭha" }, { script: "ಡ", latin: "ḍa" }, { script: "ಢ", latin: "ḍha" },
-    { script: "ತ", latin: "ta" }, { script: "ಥ", latin: "tha" }, { script: "ದ", latin: "da" },
-    { script: "ಧ", latin: "dha" }, { script: "ನ", latin: "na" }, { script: "ಪ", latin: "pa" },
-    { script: "ಫ", latin: "pha" }, { script: "ಬ", latin: "ba" }, { script: "ಭ", latin: "bha" },
-    { script: "ಮ", latin: "ma" }, { script: "ಯ", latin: "ya" }, { script: "ರ", latin: "ra" },
-    { script: "ಲ", latin: "la" }, { script: "ವ", latin: "va" }, { script: "ಶ", latin: "sha" },
-    { script: "ಷ", latin: "ṣha" }, { script: "ಸ", latin: "sa" }, { script: "ಹ", latin: "ha" },
-    { script: "ಳ", latin: "ḷa" },
+    // Simple vowels (Swara) - Added qwerty mapping
+    { script: "ಅ", latin: "a", qwerty: "a" }, { script: "ಆ", latin: "ā", qwerty: "aa" }, { script: "ಇ", latin: "i", qwerty: "i" },
+    { script: "ಈ", latin: "ī", qwerty: "ee" }, { script: "ಉ", latin: "u", qwerty: "u" }, { script: "ಊ", latin: "ū", qwerty: "oo" },
+    { script: "ಋ", latin: "ṛ", qwerty: "ru" }, { script: "ಎ", latin: "e", qwerty: "e" }, { script: "ಏ", latin: "ē", qwerty: "ee" }, // Use 'ee' for long E
+    { script: "ಐ", latin: "ai", qwerty: "ai" }, { script: "ಒ", latin: "o", qwerty: "o" }, { script: "ಓ", latin: "ō", qwerty: "oo" }, // Use 'oo' for long O
+    { script: "ಔ", latin: "au", qwerty: "au" },
+    // Consonants (Vyanjana) - Added qwerty mapping
+    { script: "ಕ", latin: "ka", qwerty: "ka" }, { script: "ಖ", latin: "kha", qwerty: "kha" }, { script: "ಗ", latin: "ga", qwerty: "ga" },
+    { script: "ಘ", latin: "gha", qwerty: "gha" }, { script: "ಚ", latin: "cha", qwerty: "cha" }, { script: "ಛ", latin: "chha", qwerty: "chha" },
+    { script: "ಜ", latin: "ja", qwerty: "ja" }, { script: "ಝ", latin: "jha", qwerty: "jha" }, { script: "ಟ", latin: "ṭa", qwerty: "Ta" }, // Retroflex T
+    { script: "ಠ", latin: "ṭha", qwerty: "Tha" }, { script: "ಡ", latin: "ḍa", qwerty: "Da" }, { script: "ಢ", latin: "ḍha", qwerty: "Dha" },
+    { script: "ತ", latin: "ta", qwerty: "ta" }, { script: "ಥ", latin: "tha", qwerty: "tha" }, { script: "ದ", latin: "da", qwerty: "da" },
+    { script: "ಧ", latin: "dha", qwerty: "dha" }, { script: "ನ", latin: "na", qwerty: "na" }, { script: "ಪ", latin: "pa", qwerty: "pa" },
+    { script: "ಫ", latin: "pha", qwerty: "pha" }, { script: "ಬ", latin: "ba", qwerty: "ba" }, { script: "ಭ", latin: "bha", qwerty: "bha" },
+    { script: "ಮ", latin: "ma", qwerty: "ma" }, { script: "ಯ", latin: "ya", qwerty: "ya" }, { script: "ರ", latin: "ra", qwerty: "ra" },
+    { script: "ಲ", latin: "la", qwerty: "la" }, { script: "ವ", latin: "va", qwerty: "va" }, { script: "ಶ", latin: "sha", qwerty: "sha" },
+    { script: "ಷ", latin: "ṣha", qwerty: "Sha" }, { script: "ಸ", latin: "sa", qwerty: "sa" }, { script: "ಹ", latin: "ha", qwerty: "ha" },
+    { script: "ಳ", latin: "ḷa", qwerty: "La" }, // Retroflex L
 ];
 
 const TURN_DURATION_SECONDS = 90;
@@ -87,8 +87,8 @@ function startGame(io, room, scoreGoal) {
     }
     console.log(`[GameLogic] Starting game in room ${room.id} with goal ${scoreGoal}`);
 
-    // Reset scores and initialize game state
-    room.players.forEach(p => p.score = 0); // Reset scores at game start
+    // Initialize game state (individual scores are no longer reset here)
+    // room.players.forEach(p => p.score = 0); // Reset scores at game start - REMOVED
     room.gameState = {
         ...room.gameState, // Keep existing parts like settings if needed
         isGameActive: true,
@@ -200,7 +200,9 @@ function handleGuess(io, room, player, guessText) {
     const playerGuess = guessText.trim().toLowerCase();
 
     // Check against both script and latin forms
-    const isCorrect = (playerGuess === correctWord.script || playerGuess === correctWord.latin.toLowerCase());
+    const isCorrect = (playerGuess === correctWord.script.toLowerCase() || // Check script (Kannada)
+                         playerGuess === correctWord.latin.toLowerCase() || // Check standard Latin
+                         playerGuess === correctWord.qwerty.toLowerCase()); // Check simplified QWERTY Latin
 
     // Broadcast the guess attempt as a chat message
     io.to(room.id).emit(EVENTS.CHAT_MESSAGE, {
@@ -217,8 +219,8 @@ function handleGuess(io, room, player, guessText) {
         // Award points
         const pointsAwarded = calculatePoints(room.gameState.timeLeft, TURN_DURATION_SECONDS);
 
-        // Update player and team scores
-        player.score = (player.score || 0) + pointsAwarded; // Ensure score is initialized
+        // Update team score
+        // player.score = (player.score || 0) + pointsAwarded; // Individual score removed
         room.gameState.teamScore = (room.gameState.teamScore || 0) + pointsAwarded;
 
         // Notify players of the correct guess
@@ -230,9 +232,9 @@ function handleGuess(io, room, player, guessText) {
             pointsAwarded: pointsAwarded
         });
 
-        // Notify players of the score update
+        // Notify players of the team score update
         io.to(room.id).emit(EVENTS.SCORE_UPDATE, {
-            players: room.players, // Send updated scores for all players
+            // players: room.players, // Individual scores no longer sent
             teamScore: room.gameState.teamScore
         });
 
@@ -272,7 +274,7 @@ function endGame(io, room, reason) {
     // Notify players that the game is over
     io.to(room.id).emit(EVENTS.GAME_OVER, {
         reason: reason,
-        finalScores: room.players, // Send final scores
+        // finalScores: room.players, // Individual scores no longer sent
         finalTeamScore: room.gameState.teamScore
     });
 

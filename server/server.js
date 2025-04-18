@@ -27,6 +27,29 @@ app.get('/', (req, res) => {
 });
 
 
+/**
+ * Creates a safe, serializable version of the room state for sending to clients.
+ * Excludes internal server state like timer IDs.
+ * @param {object} room - The full room object from roomManager.
+ * @returns {object} A sanitized room state object suitable for emission.
+ */
+function sanitizeRoomStateForClient(room) {
+    if (!room) return null;
+    // Explicitly select properties to send, excluding sensitive/internal ones
+    const sanitizedGameState = { ...room.gameState };
+    delete sanitizedGameState.turnTimerId; // Remove the timer ID object
+    delete sanitizedGameState.turnStartTime; // Client likely doesn't need this
+    // delete sanitizedGameState.currentWord; // Maybe? Only drawer needs it, sent separately. Keep for now.
+    // delete sanitizedGameState.currentPlayerIndex; // Internal logic state
+
+    return {
+        roomId: room.id,
+        players: room.players, // Player list is generally safe
+        hostId: room.hostId,
+        settings: sanitizedGameState // Send the sanitized game state as settings/gameState
+    };
+}
+
 // --- Socket Connection Handler ---
 io.on(EVENTS.CONNECTION, (socket) => {
     console.log(`[Server] User connected: ${socket.id}`);
@@ -61,7 +84,7 @@ io.on(EVENTS.CONNECTION, (socket) => {
                 settings: room.gameState // Include initial settings like scoreGoal
             };
             console.log(`[Server] Room ${room.id} created successfully by ${playerName} (${socket.id})`);
-            callback({ success: true, ...roomUpdateData }); // Respond to creator
+            callback({ success: true, ...sanitizeRoomStateForClient(room) }); // Respond to creator with sanitized state
         } catch (error) {
             console.error("[Server] Error creating room:", error.message);
             callback({ success: false, message: error.message || "Server error creating room." });
@@ -106,10 +129,11 @@ io.on(EVENTS.CONNECTION, (socket) => {
                 // TODO: If game is active, send current game state to joining player?
             };
             console.log(`[Server] Player ${playerName} (${socket.id}) joined room ${roomId} successfully.`);
-            callback({ success: true, ...roomUpdateData }); // Respond to joiner
+            const sanitizedState = sanitizeRoomStateForClient(room);
+            callback({ success: true, ...sanitizedState }); // Respond to joiner with sanitized state
 
             // Broadcast the update to others in the room
-            socket.to(roomId).emit(EVENTS.ROOM_UPDATE, roomUpdateData);
+            socket.to(roomId).emit(EVENTS.ROOM_UPDATE, sanitizedState); // Broadcast sanitized state
             // Notify chat that player joined
             io.to(roomId).emit(EVENTS.CHAT_MESSAGE, {
                 sender: 'System',
@@ -274,7 +298,7 @@ io.on(EVENTS.CONNECTION, (socket) => {
                      hostId: room.hostId,
                      settings: room.gameState // Include settings
                  };
-                 io.to(roomId).emit(EVENTS.ROOM_UPDATE, roomUpdateData);
+                 io.to(roomId).emit(EVENTS.ROOM_UPDATE, sanitizeRoomStateForClient(room)); // Broadcast sanitized state
 
                  // --- Game Logic Integration for Player Leaving ---
                  if (room.gameState.isGameActive) {

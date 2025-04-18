@@ -11,136 +11,26 @@ body {
     touch-action: manipulation;
 }
 
-/* Drawing Canvas */
-.drawing-canvas {
-    border: 2px solid #e5e7eb; /* gray-200 */
+/* Minimal Canvas Style (most styling handled by container) */
+#drawing-canvas { /* Use ID selector from HTML */
+    display: block; /* Ensure it behaves like a block */
+    width: 100%;    /* Take full width of container */
+    height: auto;   /* Maintain aspect ratio */
     cursor: crosshair;
-    touch-action: none;
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
-    background-color: #ffffff;
-    border-radius: 1rem; /* rounded-xl */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    max-width: 100%;
+    touch-action: none; /* Prevent scrolling on touch devices */
 }
 
-/* Top Bar */
-#top-bar {
-    background-color: #ffffff;
-    border-radius: 1rem; /* rounded-xl */
-    padding: 0.5rem 0.75rem; /* p-2 p-3 */
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-    margin-bottom: 0.75rem; /* mb-3 */
-}
-.active-player-indicator {
-     font-weight: 700; /* bold */
-     color: #16a34a; /* green-600 */
-}
-#top-bar-timer {
-    color: #ef4444; /* red-500 */
-    font-weight: 700;
-}
-#toggle-score-btn { /* Score button style */
-    background-color: #e0f2fe; /* sky-100 */
-    color: #0ea5e9; /* sky-500 */
-    font-weight: 700;
-    padding: 0.25rem 0.75rem; /* py-1 px-3 */
-    border-radius: 0.75rem; /* rounded-xl */
-    font-size: 0.75rem; /* text-xs */
-    transition: background-color 0.2s;
-}
-#toggle-score-btn:hover {
-    background-color: #bae6fd; /* sky-200 */
-}
 
-/* Message Box */
-#message-box {
-    position: fixed;
-    top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 10px 20px;
-    border-radius: 1rem; /* rounded-xl */
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    z-index: 100;
-    display: none;
-    font-size: 0.9rem;
-    font-weight: 600;
-    max-width: 90%;
-    text-align: center;
-    border: 1px solid rgba(0,0,0,0.05);
-}
-/* Brighter message colors */
-.message-success { background-color: #dcfce7; color: #16a34a; border-color: #bbf7d0;} /* green */
-.message-info { background-color: #e0f2fe; color: #0ea5e9; border-color: #bae6fd;} /* sky */
-.message-warning { background-color: #fef9c3; color: #ca8a04; border-color: #fef08a;} /* yellow */
+/* Scrollbar Hiding for new chat container class */
+.chat-messages::-webkit-scrollbar { display: none; }
+.chat-messages { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Scrollbar */
-#chat-messages::-webkit-scrollbar { display: none; }
-#chat-messages { -ms-overflow-style: none; scrollbar-width: none; }
-
-/* Utils */
+/* Utils (Keep) */
 .min-h-0 { min-height: 0; }
 .min-w-0 { min-width: 0; }
 
-/* Collapse Buttons */
-.collapse-button {
-    background: none;
-    border: none;
-    padding: 0.25rem;
-    margin-left: 0.5rem;
-    cursor: pointer;
-    font-size: 1rem; /* Larger icon */
-    color: #9ca3af; /* gray-400 */
-    transition: color 0.2s;
-}
-.collapse-button:hover { color: #374151; /* gray-700 */ }
 
-/* Collapsible Content */
-.collapsible-content {
-    overflow: hidden;
-    transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin 0.3s ease-out, padding 0.3s ease-out;
-    max-height: 1000px;
-    opacity: 1;
-}
-.collapsible-content.collapsed {
-    max-height: 0;
-    opacity: 0;
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    border-width: 0 !important; /* Hide border when collapsed */
-}
-
-/* Section Styling */
-#game-area {
-    padding: 0.75rem;
-}
-.section-container {
-     border: none; /* Remove border */
-     border-radius: 1rem; /* rounded-xl */
-     padding: 1rem; /* p-4 */
-     background-color: #ffffff;
-     margin-bottom: 1rem; /* mb-4 */
-     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04); /* Softer shadow */
-}
- .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem; /* mb-3 */
-    padding-bottom: 0.5rem; /* pb-2 */
-    border-bottom: 1px solid #f3f4f6; /* gray-100 */
- }
- .section-title {
-    font-size: 1.125rem; /* text-lg */
-    font-weight: 700; /* bold */
-    color: #374151; /* gray-700 */
- }
-
-/* Input & Button Styling */
+/* Input & Button Styling (Keep General Styles) */
 input[type="text"], input[type="number"] {
     border: 2px solid #e5e7eb; /* gray-200 */
     border-radius: 0.75rem; /* rounded-xl */
@@ -218,40 +108,122 @@ input[type="text"]:focus, input[type="number"]:focus {
     background-color: #d1d5db; /* gray-300 */
 }
 
-/* Specific Element Adjustments */
-#guess-input-container { display: flex; gap: 0.5rem; /* Add gap */}
-#guess-input { flex-grow: 1; border-radius: 0.75rem; } /* Ensure full rounding */
-#send-guess-btn { border-radius: 0.75rem; flex-shrink: 0;} /* Ensure full rounding */
-#clear-canvas-btn { padding: 0.5rem 1rem; font-size: 0.75rem;} /* Smaller clear button */
-#show-letter-btn { padding: 0.5rem 1rem; font-size: 0.75rem;} /* Smaller show letter button */
-#end-game-btn { width: 100%; max-width: none; } /* Full width end button */
+/* Keep general button styles, remove specific old ID styles */
 
-/* Player Score List Item */
-.player-score-item {
-     background-color: #f3f4f6; /* gray-100 */
-     padding: 0.5rem 0.75rem;
-     border-radius: 0.75rem; /* rounded-xl */
-     display: flex;
-     justify-content: space-between;
-     align-items: center;
-     font-size: 0.875rem; /* text-sm */
-     margin-bottom: 0.25rem; /* mb-1 */
-}
- .player-score-item.active {
-     background-color: #dcfce7; /* green-100 */
-     font-weight: 700;
- }
- .player-score-item .player-name { color: #374151; font-weight: 600; }
- .player-score-item .player-points { color: #1d4ed8; font-weight: 700; } /* blue-700 */
 
-/* Chat Message Style */
-#chat-messages { background-color: #f9fafb; border-radius: 0.75rem; } /* gray-50 */
+/* Chat Message Style (Keep base, remove specific types handled by inline styles) */
+.chat-messages { background-color: #f3f4f6; border-radius: 0.75rem; border: 1px solid #e5e7eb; } /* Added background/border from inline */
 .chat-message {
     padding: 0.25rem 0.5rem;
     font-size: 0.875rem; /* text-sm */
     line-height: 1.4;
 }
 .chat-message strong { font-weight: 700; }
-.chat-message.system { color: #581c87; font-style: italic;} /* purple-900 */
-.chat-message.correct { color: #16a34a; font-weight: 700;} /* green-600 */
-.chat-message.guess { color: #374151; } /* gray-700 */
+/* Removed .system, .correct, .guess rules */
+
+/* Progress Bar Styles */
+.progress-bar-bg {
+    background-color: #e5e7eb; /* gray-200 */
+    border-radius: 9999px; /* rounded-full */
+    overflow: hidden; /* Ensure inner bar respects rounded corners */
+}
+
+.progress-bar-inner {
+    background-color: #22c55e; /* green-500 */
+    border-radius: 9999px; /* rounded-full */
+    transition: width 0.3s ease-in-out; /* Smooth transition */
+}
+
+/* Hint Modal Styles */
+#hint-modal {
+    /* Tailwind classes used in HTML: fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center hidden z-50 */
+    /* We can add fallback styles or overrides if needed, but Tailwind handles most */
+}
+
+#hint-modal.show-modal {
+    display: flex; /* Override the 'hidden' class from Tailwind */
+}
+
+/* Style for the draggable header */
+#hint-modal-header {
+    cursor: move;
+}
+
+#hint-modal-content {
+    /* Tailwind classes used in HTML: mt-3 max-h-80 overflow-y-auto */
+    /* Add specific styles for the grid layout */
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); /* Responsive grid */
+    gap: 1rem; /* Spacing between items */
+    padding: 0.5rem; /* Padding inside the scrollable area */
+}
+
+.hint-item {
+    /* Styles for each alphabet item in the modal */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    border: 1px solid #e5e7eb; /* gray-200 */
+    border-radius: 0.375rem; /* rounded-md */
+    background-color: #f9fafb; /* gray-50 */
+    text-align: center;
+}
+
+.dark .hint-item {
+    border-color: #4b5563; /* dark:border-gray-600 */
+    background-color: #374151; /* dark:bg-gray-700 */
+}
+
+.hint-kannada {
+    font-size: 1.875rem; /* text-3xl */
+    font-weight: bold;
+    color: #1d4ed8; /* blue-700 */
+    margin-bottom: 0.25rem;
+}
+
+.dark .hint-kannada {
+    color: #60a5fa; /* dark:text-blue-400 */
+}
+
+.hint-latin {
+    font-size: 0.875rem; /* text-sm */
+    color: #4b5563; /* gray-600 */
+}
+
+.dark .hint-latin {
+    color: #d1d5db; /* dark:text-gray-300 */
+}
+
+/* Ensure modal content scrollbar is visible if needed */
+#hint-modal-content::-webkit-scrollbar {
+    width: 8px;
+}
+#hint-modal-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+.dark #hint-modal-content::-webkit-scrollbar-track {
+    background: #555;
+}
+#hint-modal-content::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+#hint-modal-content::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+.dark #hint-modal-content::-webkit-scrollbar-thumb {
+    background: #bbb;
+}
+.dark #hint-modal-content::-webkit-scrollbar-thumb:hover {
+    background: #888;
+}
+#hint-modal-content {
+    scrollbar-width: thin; /* For Firefox */
+    scrollbar-color: #888 #f1f1f1; /* For Firefox */
+}
+.dark #hint-modal-content {
+    scrollbar-color: #bbb #555; /* For Firefox */
+}

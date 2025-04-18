@@ -101,7 +101,7 @@ function resizeCanvas() {
     // Resize based on parent element's client size
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
     canvas.width = canvas.parentElement.clientWidth * ratio;
-    canvas.height = canvas.parentElement.clientWidth * (9 / 16) * ratio; // Example: 16:9 aspect ratio
+    canvas.height = canvas.parentElement.clientWidth * (9 / 32) * ratio; // Halved aspect ratio (was 9/16)
     const ctx = canvas.getContext("2d");
     if (ctx) {
         ctx.scale(ratio, ratio);
