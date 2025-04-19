@@ -89,8 +89,8 @@
             <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">Share this code with friends!</p>
             <div class="mb-4 text-left">
                 <h3 class="font-bold text-gray-800 dark:text-gray-100 mb-2">Players ({{ room?.players?.length || 0 }}/8):</h3>
-                <ul v-if="room?.players" class="list-none space-y-1 text-gray-700 dark:text-gray-300 font-semibold">
-                     <li v-for="p in room.players" :key="p.id" :class="{ 'font-bold text-blue-600 dark:text-blue-400': p.id === room.hostId, 'italic': p.id === player?.id }">
+                <ul v-if="playersSorted.length > 0" class="list-none space-y-1 text-gray-700 dark:text-gray-300 font-semibold">
+                     <li v-for="p in playersSorted" :key="p.id" :class="{ 'font-bold text-blue-600 dark:text-blue-400': p.id === room.hostId, 'italic': p.id === player?.id }">
                         {{ p.name }}
                         <span v-if="p.id === room.hostId">(Host)</span>
                         <span v-if="p.id === player?.id">(You)</span>
@@ -234,8 +234,8 @@
         </div>
 
         <!-- Kannada Alphabet Hint Modal -->
-        <!-- Removed flex items-center justify-center to allow absolute positioning -->
-        <div id="hint-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-opacity-75 overflow-y-auto h-full w-full hidden z-50">
+        <!-- Removed flex items-center justify-center to allow absolute positioning. Use v-show for visibility. -->
+        <div id="hint-modal" v-show="isHintModalVisible" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-opacity-75 overflow-y-auto h-full w-full z-50">
             <!-- Added position:absolute, initial top/left for centering (can be adjusted), and ID -->
             <div id="hint-modal-draggable" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white dark:bg-gray-800">
                 <!-- Added ID to header for drag handle -->

@@ -300,19 +300,10 @@ io.on(EVENTS.CONNECTION, (socket) => {
                  };
                  io.to(roomId).emit(EVENTS.ROOM_UPDATE, sanitizeRoomStateForClient(room)); // Broadcast sanitized state
 
-                 // --- Game Logic Integration for Player Leaving ---
-                 if (room.gameState.isGameActive) {
-                     if (room.players.length < 2) {
-                         // End game if not enough players remain
-                         console.log(`[Server] Only ${room.players.length} player(s) left in active game room ${roomId}, ending game.`);
-                         gameLogic.endGame(io, room, "Not enough players left.");
-                     } else if (room.gameState.currentDrawerId === socket.id) {
-                         // Start new turn immediately if the drawer left
-                         console.log(`[Server] Drawer left room ${roomId}, starting new turn.`);
-                         gameLogic.startNewTurn(io, room); // This should handle timer clearing
-                     }
-                 }
-                 // --- End Game Logic Integration ---
+                 // --- Delegate Game Logic Handling for Disconnect ---
+                 // Pass the potentially updated room state and the ID of the disconnected player
+                 gameLogic.handlePlayerDisconnect(io, room, socket.id);
+                 // --- End Game Logic Delegation ---
 
             } else if (isRoomEmpty) {
                  console.log(`[Server] Room ${roomId} was deleted as it became empty.`);

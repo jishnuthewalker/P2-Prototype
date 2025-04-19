@@ -1,36 +1,7 @@
-// Define event names used for communication
+// Standardized Socket Event Names (snake_case)
 const EVENTS = {
-    CONNECTION: 'connection',
-    DISCONNECT: 'disconnect',
-    CREATE_ROOM: 'createRoom', // Note: Client uses 'create_room'. Need consistency. Let's use snake_case everywhere.
-    JOIN_ROOM: 'joinRoom',     // Client uses 'join_room'.
-    ROOM_UPDATE: 'roomUpdate', // Client uses 'room_update'.
-    PLAYER_JOINED: 'playerJoined', // Keep for potential specific notifications
-    PLAYER_LEFT: 'playerLeft',     // Keep for potential specific notifications
-    NEW_HOST: 'newHost',
-    UPDATE_PLAYER_LIST: 'updatePlayerList', // Potentially redundant with ROOM_UPDATE
-    START_GAME: 'startGame',     // Client uses 'start_game'.
-    DRAWING: 'drawing',          // Client uses 'draw_data'.
-    DRAWING_UPDATE: 'drawingUpdate', // Broadcast drawing data
-    CLEAR_CANVAS: 'clearCanvas', // Client uses 'clear_canvas'.
-    CLEAR_CANVAS_UPDATE: 'clearCanvasUpdate', // Broadcast clear canvas
-    GUESS: 'guess',              // Client uses 'send_guess'.
-    CHAT_MESSAGE: 'chatMessage', // Client uses 'send_message'.
-    CHAT_UPDATE: 'chatUpdate',   // Broadcast chat message. Client uses 'chat_message'.
-    // Game specific events
-    GAME_STARTED: 'gameStarted', // Client uses 'game_started'.
-    NEW_TURN: 'newTurn',         // Client uses 'new_turn'.
-    GUESS_RESULT: 'guessResult', // Client uses 'guess_result'.
-    SCORE_UPDATE: 'scoreUpdate',
-    TIMER_UPDATE: 'timerUpdate',
-    GAME_OVER: 'gameOver',       // Client uses 'game_over'.
-    ERROR: 'error'               // Client uses 'error'.
-};
-
-// Let's standardize on snake_case as used in client's constants.js
-const STANDARDIZED_EVENTS = {
-    CONNECTION: 'connection',
-    DISCONNECT: 'disconnect',
+    CONNECTION: 'connection', // Standard Socket.IO event
+    DISCONNECT: 'disconnect', // Standard Socket.IO event
     CREATE_ROOM: 'create_room',
     JOIN_ROOM: 'join_room',
     ROOM_UPDATE: 'room_update',
@@ -63,7 +34,7 @@ const MAX_PLAYERS = 8;
 const DEFAULT_SCORE_GOAL = 50;
 
 module.exports = {
-    ...STANDARDIZED_EVENTS, // Spread the event names
+    ...EVENTS, // Spread the event names
     MAX_PLAYERS,
     DEFAULT_SCORE_GOAL
 };

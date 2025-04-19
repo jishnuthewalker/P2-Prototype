@@ -1,20 +1,4 @@
-import * as dom from './dom.js'; // Keep if toggleScoreboard is still used elsewhere, otherwise remove
-
-/**
- * Toggles the visibility of the full scoreboard section.
- * (Keep if still used, otherwise remove)
- */
-export function toggleScoreboard() {
-    // ... (existing code if needed) ...
-}
-
-/**
- * Toggles the collapsed state of a generic section.
- * (Keep if still used, otherwise remove)
- */
-export function toggleSection(contentId) {
-    // ... (existing code if needed) ...
-}
+// Removed unused dom import and toggle functions
 
 /**
  * Makes an HTML element draggable by its handle.

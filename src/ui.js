@@ -1,6 +1,6 @@
 // Removed top-level dom import
 import * as constants from './constants.js';
-import * as state from './state.js'; // Import the state module
+// Removed state import - state should be passed into functions or handled by reactivity
 
 // --- View Management ---
 
@@ -80,14 +80,13 @@ export function hideSetupError(domElements) {
 // --- Lobby UI ---
 
 /**
- * Updates the lobby view using data from the state module.
+ * Updates the lobby view with provided data.
  * @param {Object.<string, HTMLElement>} domElements - The fetched DOM elements.
+ * @param {object | null} room - The current room object.
+ * @param {string | null} currentPlayerId - The ID of the current player.
+ * @param {boolean} isHost - Whether the current player is the host.
  */
-export function updateLobbyView(domElements) {
-    const room = state.getRoom();
-    const currentPlayerId = state.getPlayer()?.id;
-    const isHost = state.isCurrentUserHost();
-
+export function updateLobbyView(domElements, room, currentPlayerId, isHost) {
     // Check required elements from the passed object
     if (!domElements?.gameLobbyView || !domElements.lobbyRoomId || !domElements.lobbyPlayerCount ||
         !domElements.lobbyScoreGoalInput || !domElements.lobbyPlayerList || !domElements.lobbyHostName ||
@@ -166,9 +165,9 @@ export function resetLobbyView(domElements) {
  * Typically called once when entering the game view. Specific elements
  * like scores, timer, turn display are updated by their respective functions.
  * @param {Object.<string, HTMLElement>} domElements - The fetched DOM elements.
+ * @param {object | null} room - The current room object.
  */
-export function updateGameView(domElements) {
-    const room = state.getRoom();
+export function updateGameView(domElements, room) {
     if (!domElements?.gameAreaView || !domElements.teamGoalDisplay) {
          console.warn("updateGameView called but required elements missing in domElements.");
          return;
@@ -185,14 +184,12 @@ export function updateGameView(domElements) {
 }
 
 /**
- * Updates the player scores display using data from the state module.
+ * Updates the player scores display with provided data.
  * @param {Object.<string, HTMLElement>} domElements - The fetched DOM elements.
+ * @param {Array | null} players - The list of players in the room.
+ * @param {number | null} teamGoal - The target score for the team.
  */
-export function updatePlayerScores(domElements) {
-    const room = state.getRoom();
-    const players = room?.players;
-    const teamGoal = room?.settings?.scoreGoal; // Optional chaining
-
+export function updatePlayerScores(domElements, players, teamGoal) {
     if (!domElements?.playerScoresContainer || !domElements.currentTeamScore || !domElements.teamGoalDisplay) {
         console.warn("updatePlayerScores called but required score elements missing in domElements.");
         return;
@@ -269,11 +266,13 @@ export function addChatMessage(domElements, sender, message, type = 'chat') {
 }
 
 /**
- * Updates the turn indicator and related UI elements based on state.
+ * Updates the turn indicator and related UI elements.
  * @param {Object.<string, HTMLElement>} domElements - The fetched DOM elements.
- * @param {string} drawerName - Name of the current drawer (passed from event data).
+ * @param {string} drawerName - Name of the current drawer.
+ * @param {boolean} isDrawing - Whether the current user is the drawer.
+ * @param {object | null} word - The word object { script, latin } for the drawer, null otherwise.
  */
-export function updateTurnDisplay(domElements, drawerName) {
+export function updateTurnDisplay(domElements, drawerName, isDrawing, word) {
     if (!domElements?.gameAreaView || !domElements.topBarDrawer || !domElements.turnIndicator ||
         !domElements.letterToDrawContainer || !domElements.showLetterBtn || !domElements.guessInput ||
         !domElements.guessSendBtn)
@@ -282,8 +281,7 @@ export function updateTurnDisplay(domElements, drawerName) {
         return;
     }
 
-    const isDrawing = state.isCurrentUserDrawing();
-    const word = state.getCurrentWord(); // Word is only set for the drawer via YOUR_TURN_TO_DRAW
+    // Word is only passed for the drawer via YOUR_TURN_TO_DRAW event handling in main.js
 
     domElements.topBarDrawer.textContent = drawerName || 'Unknown';
     domElements.turnIndicator.textContent = isDrawing ? "It's your turn to draw!" : `Waiting for ${drawerName} to draw...`;
@@ -306,12 +304,13 @@ export function updateTurnDisplay(domElements, drawerName) {
 }
 
 /**
- * Shows the word to the current drawer
+ * Shows the word to the current drawer. Assumes caller has already checked if it's the current user's turn.
  * @param {Object.<string, HTMLElement>} domElements - The fetched DOM elements.
  * @param {object} word - The word object { script, latin }.
  */
 export function showWordToDrawer(domElements, word) {
-    if (!state.isCurrentUserDrawing() || !word) return; // Only for the drawer
+    // Removed check for state.isCurrentUserDrawing() - caller (main.js) should handle this logic.
+    if (!word) return;
 
     if (!domElements?.letterToDrawContainer || !domElements.letterToDrawScript || !domElements.letterToDrawLatin ||
         !domElements.showLetterBtn || !domElements.turnIndicator)

@@ -283,9 +283,40 @@ function endGame(io, room, reason) {
 }
 
 
+/**
+ * Handles the game logic consequences of a player disconnecting.
+ * Checks if the game needs to end or if a new turn should start.
+ * @param {object} io - The Socket.IO server instance.
+ * @param {object} room - The room object (potentially *after* the player is removed).
+ * @param {string} disconnectedPlayerId - The ID of the player who disconnected.
+ */
+function handlePlayerDisconnect(io, room, disconnectedPlayerId) {
+    // Check if game was active *before* disconnect potentially ended it
+    if (!room || !room.gameState || !room.gameState.isGameActive) {
+        return; // Game not active or room gone, nothing to do game-logic wise
+    }
+
+    console.log(`[GameLogic] Handling disconnect for player ${disconnectedPlayerId} in active game room ${room.id}`);
+
+    // Check if enough players remain
+    if (room.players.length < 2) {
+        console.log(`[GameLogic] Only ${room.players.length} player(s) left, ending game.`);
+        endGame(io, room, "Not enough players left.");
+    } else if (room.gameState.currentDrawerId === disconnectedPlayerId) {
+        // If the drawer disconnected, start a new turn immediately
+        console.log(`[GameLogic] Drawer ${disconnectedPlayerId} left, starting new turn.`);
+        // Ensure the timer is cleared before starting the new turn
+        clearTurnTimer(room); // Explicitly clear timer here
+        startNewTurn(io, room);
+    }
+    // If a non-drawer left and there are still enough players, the current turn continues.
+}
+
+
 module.exports = {
     startGame,
     startNewTurn,
+    handlePlayerDisconnect, // Export the new function
     handleGuess,
     endGame
 };
