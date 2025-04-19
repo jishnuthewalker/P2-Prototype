@@ -21,6 +21,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
         /* Basic styles for v-cloak to prevent flash of unstyled content */
         [v-cloak] { display: none; }
@@ -58,30 +59,30 @@
         <!-- Initial Setup View -->
         <div v-if="currentView === 'initial-setup'" class="relative w-full max-w-md mx-auto bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg text-center my-6 flex-shrink-0">
              <!-- Dark Mode Toggle Button -->
-             <button @click="toggleDarkMode" class="absolute top-4 right-4 text-xs p-1 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
-                 {{ isDarkMode ? 'Light' : 'Dark' }} Mode
+             <button @click="toggleDarkMode" title="Toggle Dark Mode" class="absolute top-4 right-4 text-lg p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 w-8 h-8 flex items-center justify-center">
+                 <i :class="isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'"></i>
              </button>
-            <h1 class="text-3xl font-extrabold mb-4 text-green-600 dark:text-green-400">ಕನ್ನಡ ಅಕ್ಷರ ಚಿತ್ರ</h1>
+            <h1 class="text-3xl font-extrabold mb-4 text-green-600 dark:text-green-400">KALIYO v0.1</h1>
             <p class="mb-6 text-gray-600 dark:text-gray-300 font-semibold">Enter your name and create or join a room!</p>
             <div class="mb-4">
                 <label for="player-name-input-pv" class="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2 text-left">Your Name:</label>
                 <input type="text" id="player-name-input-pv" v-model="playerNameInput" class="w-full dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="Enter your name">
             </div>
-            <button @click="createRoom" class="w-full btn btn-secondary mb-3">Create New Room</button>
+            <button @click="createRoom" class="w-full btn btn-secondary mb-3"><i class="fa-solid fa-plus mr-2"></i>Create New Room</button>
             <hr class="my-4 border-gray-200 dark:border-gray-600">
             <div class="mb-4">
                 <label for="room-id-input-pv" class="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2 text-left">Room Code:</label>
                 <input type="text" id="room-id-input-pv" v-model="roomIdInput" class="w-full dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" placeholder="Enter 4-digit code" maxlength="4">
             </div>
-            <button @click="joinRoom" class="w-full btn btn-primary">Join Room</button>
+            <button @click="joinRoom" class="w-full btn btn-primary"><i class="fa-solid fa-right-to-bracket mr-2"></i>Join Room</button>
             <p v-if="setupError" class="mt-3 text-red-500 dark:text-red-400 text-sm font-semibold">{{ setupError.message }}</p>
         </div>
 
         <!-- Game Lobby View -->
         <div v-if="currentView === 'game-lobby'" class="relative w-full max-w-md mx-auto bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg text-center my-6 flex-shrink-0">
             <!-- Dark Mode Toggle Button -->
-             <button @click="toggleDarkMode" class="absolute top-4 right-4 text-xs p-1 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
-                 {{ isDarkMode ? 'Light' : 'Dark' }} Mode
+             <button @click="toggleDarkMode" title="Toggle Dark Mode" class="absolute top-4 right-4 text-lg p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 w-8 h-8 flex items-center justify-center">
+                 <i :class="isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'"></i>
              </button>
             <h2 class="text-2xl font-bold mb-3 text-gray-700 dark:text-gray-200">Room Lobby</h2>
             <p class="mb-2 text-gray-600 dark:text-gray-300">Room Code: <strong class="text-blue-600 dark:text-blue-400 text-lg font-mono">{{ room?.id || '----' }}</strong></p>
@@ -101,10 +102,10 @@
                 <input type="number" id="lobby-score-goal-pv" v-model.number="lobbyScoreGoalInput" min="10" class="w-full dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white" :disabled="!isHost">
             </div>
             <button @click="startGame" class="w-full btn btn-primary" :disabled="!canStartGame">
-                {{ isHost ? 'Start Game' : 'Waiting for Host...' }}
+                <i class="fa-solid fa-play mr-2"></i> {{ isHost ? 'Start Game' : 'Waiting for Host...' }}
             </button>
             <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">Waiting for host ({{ room?.players?.find(p => p.id === room?.hostId)?.name || 'Host' }}) to start...</p>
-            <button @click="leaveRoom" class="mt-4 text-sm text-red-600 dark:text-red-400 hover:underline">Leave Room</button>
+            <button @click="leaveRoom" class="mt-4 text-sm text-red-600 dark:text-red-400 hover:underline"><i class="fa-solid fa-right-from-bracket mr-1"></i> Leave Room</button>
         </div>
 
         <!-- Main Game Area View -->
@@ -114,11 +115,7 @@
             <!-- Header -->
             <div class="game-header p-3 flex justify-between items-center flex-shrink-0 border-b border-gray-200 dark:border-gray-700"> <!-- Added border -->
                 <button @click="leaveRoom" class="text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 text-sm font-semibold flex items-center">
-                    <!-- Simple Back Arrow SVG -->
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                    Leave Game
+                    <i class="fa-solid fa-arrow-left mr-1"></i> Leave Game
                 </button>
                 <h1 class="text-lg font-bold text-gray-800 dark:text-gray-100">Kannada Letter Pictionary</h1>
                 <div class="flex items-center gap-4"> <!-- Group time and theme toggle -->
@@ -126,8 +123,8 @@
                         Time: <span class="font-mono">{{ timeLeft }}s</span>
                     </div>
                     <!-- Dark Mode Toggle Button -->
-                    <button @click="toggleDarkMode" class="text-xs p-1 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
-                        {{ isDarkMode ? 'Light' : 'Dark' }} Mode
+                    <button @click="toggleDarkMode" title="Toggle Dark Mode" class="text-lg p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 w-8 h-8 flex items-center justify-center">
+                        <i :class="isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'"></i>
                     </button>
                 </div>
             </div>
@@ -191,7 +188,7 @@
                         <!-- Color Picker Removed -->
                         <label for="brush-size-pv" class="text-sm font-bold text-gray-600 dark:text-gray-300">Size:</label>
                         <input type="range" id="brush-size-pv" min="1" max="20" :value="brushSize" @input="handleBrushSizeChange" class="cursor-pointer w-24 h-2 bg-gray-200 dark:bg-gray-600 rounded-lg appearance-none accent-blue-500 dark:accent-blue-400">
-                        <button @click="clearCanvasClick" class="btn btn-danger text-xs">Clear</button>
+                        <button @click="clearCanvasClick" class="btn btn-danger text-xs"><i class="fa-solid fa-trash-can mr-1"></i> Clear</button>
                     </div>
 
                     <!-- Guessing Input (Not for Drawer) -->
@@ -199,8 +196,8 @@
                          <label for="guess-input-pv" class="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-1">Your Guess:</label>
                          <div class="flex">
                             <input type="text" id="guess-input-pv" v-model="guessInput" @keypress.enter="sendGuess" :disabled="isDrawing" placeholder="Type Kannada or Latin..." class="flex-grow dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
-                            <button @click="sendGuess" class="btn btn-primary rounded-l-none" :disabled="isDrawing">Send</button>
-                            <button @click="toggleHintModal" class="btn btn-secondary ml-2">Hint</button> <!-- Added Hint Button -->
+                            <button @click="sendGuess" class="btn btn-primary px-3" :disabled="isDrawing" title="Send Guess"><i class="fa-solid fa-paper-plane"></i></button>
+                            <button @click="toggleHintModal" class="btn btn-secondary ml-2"><i class="fa-solid fa-lightbulb mr-1"></i> Hint</button> <!-- Added Hint Button -->
                         </div>
                     </div>
 
@@ -244,7 +241,7 @@
                 <!-- Added ID to header for drag handle -->
                 <div id="hint-modal-header" class="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-600">
                     <p class="text-xl font-bold text-gray-800 dark:text-gray-100">Kannada Alphabet Hint</p>
-                    <button @click="toggleHintModal" class="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl font-bold">&times;</button>
+                    <button @click="toggleHintModal" class="text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-xl w-8 h-8 flex items-center justify-center" title="Close Hint"><i class="fa-solid fa-times"></i></button>
                 </div>
                 <div id="hint-modal-content" class="mt-3 max-h-80 overflow-y-auto">
                     <!-- Alphabet grid will be populated here by JS -->

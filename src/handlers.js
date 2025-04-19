@@ -65,6 +65,38 @@ function handleCreateRoom() {
                     // gameState will be updated by server events later
                 });
                 registerSocketListeners(); // Register game-specific listeners AFTER successful room creation
+
+                // --- Clipboard Copy Logic ---
+                const roomIdToCopy = response.roomId;
+                // Ensure domElements is accessible here (it should be via closure)
+                if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                    navigator.clipboard.writeText(roomIdToCopy).then(() => {
+                        console.log(`Room ID ${roomIdToCopy} copied to clipboard.`);
+                        // Check domElements again just before using it inside async callback
+                        if (domElements) {
+                            ui.showNotification(domElements, `Room code ${roomIdToCopy} copied!`, 'success', 2500);
+                        } else {
+                             console.warn("domElements not available when trying to show copy success notification.");
+                        }
+                    }).catch(err => {
+                        console.error('Clipboard API Error: Failed to copy room ID automatically.', err);
+                        // Show a notification that copying failed, but the room was created.
+                        if (domElements) {
+                             ui.showNotification(domElements, `Room ${roomIdToCopy} created. (Copy failed)`, 'info', 3000);
+                        } else {
+                             console.warn("domElements not available when trying to show copy failure notification.");
+                        }
+                    });
+                } else {
+                    console.warn("Clipboard API (writeText) not available in this browser/context.");
+                     if (domElements) {
+                         ui.showNotification(domElements, `Room ${roomIdToCopy} created. (Copy N/A)`, 'info', 3000);
+                    } else {
+                         console.warn("domElements not available when trying to show copy N/A notification.");
+                    }
+                }
+                // --- End Clipboard Copy Logic ---
+
                 // Pass domElements to UI functions that need them
                 ui.updateLobbyView(domElements);
                 ui.showView(VIEWS.LOBBY, domElements);
