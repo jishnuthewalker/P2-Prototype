@@ -236,7 +236,14 @@ const appState = {
     // Hint Modal Logic - Called from HTML via @click
     toggleHintModal() {
         this.isHintModalVisible = !this.isHintModalVisible;
-        // Visibility is controlled by v-show or v-if in HTML based on isHintModalVisible
+        // Populate the modal content when it's shown
+        if (this.isHintModalVisible) {
+            // Use $nextTick to ensure the modal element is in the DOM before populating
+            this.$nextTick(() => {
+                 console.log("Populating hint modal..."); // DEBUG: Check if population is reached
+                 populateHintModal('hint-modal-content'); // Use the correct ID from HTML
+            });
+        }
     },
 
     // --- Socket Connection and Emission Logic ---
@@ -534,16 +541,20 @@ console.log("petite-vue mounted to #app-container.");
 appState.initDarkMode();
 
 // Populate hint modal content (static content)
-populateHintModal('hint-content');
+// populateHintModal('hint-content'); // Removed: now called when modal is shown
 
 // Make hint modal draggable (needs DOM elements)
 // Ensure this runs after petite-vue has mounted and rendered the modal
 app.$nextTick(() => {
-    const hintModal = document.getElementById('hint-modal');
-    const hintHeader = document.getElementById('hint-header');
+    const hintModal = document.getElementById('hint-modal-draggable'); // Use the draggable element ID
+    const hintHeader = document.getElementById('hint-modal-header'); // Use the header element ID
     if (hintModal && hintHeader) {
-        makeDraggable(hintModal, hintHeader);
-        console.log("Hint modal drag initialized.");
+        try { // DEBUG: Catch potential errors during drag init
+            makeDraggable(hintModal, hintHeader);
+            console.log("Hint modal drag initialized.");
+        } catch (error) {
+            console.error("Error initializing hint modal drag:", error);
+        }
     } else {
         console.warn("Could not find hint modal or header elements for dragging after mount.");
     }
