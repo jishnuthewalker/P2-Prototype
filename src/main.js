@@ -240,8 +240,22 @@ const appState = {
         if (this.isHintModalVisible) {
             // Use $nextTick to ensure the modal element is in the DOM before populating
             this.$nextTick(() => {
-                 console.log("Populating hint modal..."); // DEBUG: Check if population is reached
+                 console.log("Populating hint modal and initializing drag..."); // DEBUG
                  populateHintModal('hint-modal-content'); // Use the correct ID from HTML
+
+                 // Initialize dragging after modal content is potentially rendered
+                 const hintModal = document.getElementById('hint-modal-draggable');
+                 const hintHeader = document.getElementById('hint-modal-header');
+                 if (hintModal && hintHeader) {
+                     try {
+                         makeDraggable(hintModal, hintHeader);
+                         console.log("Hint modal drag initialized.");
+                     } catch (error) {
+                         console.error("Error initializing hint modal drag:", error);
+                     }
+                 } else {
+                    console.warn("Could not find hint modal or header elements for dragging inside nextTick.");
+                 }
             });
         }
     },
@@ -543,19 +557,4 @@ appState.initDarkMode();
 // Populate hint modal content (static content)
 // populateHintModal('hint-content'); // Removed: now called when modal is shown
 
-// Make hint modal draggable (needs DOM elements)
-// Ensure this runs after petite-vue has mounted and rendered the modal
-app.$nextTick(() => {
-    const hintModal = document.getElementById('hint-modal-draggable'); // Use the draggable element ID
-    const hintHeader = document.getElementById('hint-modal-header'); // Use the header element ID
-    if (hintModal && hintHeader) {
-        try { // DEBUG: Catch potential errors during drag init
-            makeDraggable(hintModal, hintHeader);
-            console.log("Hint modal drag initialized.");
-        } catch (error) {
-            console.error("Error initializing hint modal drag:", error);
-        }
-    } else {
-        console.warn("Could not find hint modal or header elements for dragging after mount.");
-    }
-});
+// Removed global drag initialization - moved into toggleHintModal's $nextTick
