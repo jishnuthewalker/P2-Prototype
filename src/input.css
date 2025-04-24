@@ -3,3 +3,10 @@
 @tailwind utilities;
 
 /* You can add custom CSS rules here if needed */
+@media (min-width: 1024px) { /* Apply on large screens and up */
+  body {
+    max-width: 33.33vw;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}

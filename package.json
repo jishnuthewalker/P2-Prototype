@@ -5,12 +5,18 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "nodemon server/server.js"
+    "dev": "nodemon server/server.js",
+    "build:css": "npx tailwindcss -i ./src/input.css -o ./style.css"
   },
   "dependencies": {
     "express": "^4.17.1",
     "socket.io": "^4.0.0"
   },
   "author": "Roo",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.1.4"
+  }
 }
